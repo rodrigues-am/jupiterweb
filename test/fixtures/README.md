@@ -1,0 +1,1 @@
+This directory holds offline HTML and expected JSON fixtures for tests.

@@ -136,7 +136,7 @@ Read =scrape_jupiterweb.py= and map at least:
 - =build_estrutura=
 - =build_ementa_fallback=
 
-** NEXT [#A] JW-002 Create source tree skeleton :D1:
+** DONE [#A] JW-002 Create source tree skeleton :D1:
 :PROPERTIES:
 :ID: JW-002
 :FILES: jupiterweb.el jupiterweb-vars.el jupiterweb-http.el jupiterweb-parse.el jupiterweb-cache.el jupiterweb-ui.el jupiterweb-transient.el jupiterweb-export.el test/jupiterweb-test.el test/fixtures/
@@ -155,7 +155,7 @@ Each =.el= file must contain:
 
 * Phase 1 — Package core
 
-** TODO [#A] JW-010 Implement package entry point :D1:
+** NEXT [#A] JW-010 Implement package entry point :D1:
 :PROPERTIES:
 :ID: JW-010
 :FILES: jupiterweb.el
