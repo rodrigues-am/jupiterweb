@@ -107,7 +107,7 @@ Minimum =README.md=:
 Emacs Lisp package for querying, caching, viewing, inserting, and exporting USP JupiterWeb curriculum and syllabus data.
 #+end_src
 
-** NEXT [#A] JW-001 Inspect Python scraper and write porting map :D1:port:docs:
+** DONE [#A] JW-001 Inspect Python scraper and write porting map :D1:port:docs:
 :PROPERTIES:
 :ID: JW-001
 :FILES: scrape_jupiterweb.py DECISIONS.md
@@ -136,7 +136,7 @@ Read =scrape_jupiterweb.py= and map at least:
 - =build_estrutura=
 - =build_ementa_fallback=
 
-** TODO [#A] JW-002 Create source tree skeleton :D1:
+** NEXT [#A] JW-002 Create source tree skeleton :D1:
 :PROPERTIES:
 :ID: JW-002
 :FILES: jupiterweb.el jupiterweb-vars.el jupiterweb-http.el jupiterweb-parse.el jupiterweb-cache.el jupiterweb-ui.el jupiterweb-transient.el jupiterweb-export.el test/jupiterweb-test.el test/fixtures/
