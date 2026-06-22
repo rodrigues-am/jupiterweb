@@ -88,6 +88,7 @@ With prefix arg (FETCH-MISSING non-nil), fetch missing syllabi first."
   (let ((curriculum (jupiterweb--ensure-curriculum))
         (failures nil)
         (disciplines nil))
+    (ignore fetch-missing)
     (when curriculum
       (dolist (d (plist-get curriculum :disciplines))
         (let* ((sgldis (plist-get d :sgldis))

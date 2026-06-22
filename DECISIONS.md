@@ -99,6 +99,20 @@ All tasks JW-000 through JW-163 have been completed.
    For reliable encoding, convert JSON objects to hash tables and JSON arrays to
    vectors before serialization.
 
+9. **Internal cache uses `.el`, export uses JSON**: The package now writes
+   curriculum and discipline caches as printed Emacs Lisp plists in `.el` files
+   and reads them with `read` for faster Emacs-native persistence. Legacy `.json`
+   cache files are still readable for migration, and `jupiterweb-cache-clear-disk`
+   removes both `.el` and `.json` cache files. The explicit export command still
+   writes interoperable JSON.
+
+10. **Curriculum names come from the next table cell**: On the real JupiterWeb
+   grade page, the `<a>` text is only the discipline code (e.g. `4300157`), and
+   the human discipline name is in the following `<td>`. `jupiterweb-parse-curriculum`
+   must save all regexp match strings before cleanup helpers run, because cleanup
+   functions mutate Emacs match data. This prevents selection/insertion from
+   showing `4300157 (4300157)`.
+
 ### Known limitations
 
 - No fixtures saved (JW-040, JW-041, JW-042) — requires network access to

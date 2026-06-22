@@ -1,4 +1,4 @@
-;;; jupiterweb-cache.el --- JSON cache read/write for JupiterWeb  -*- lexical-binding: t; -*-
+;;; jupiterweb-cache.el --- Fast Elisp cache read/write for JupiterWeb  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026  rodrigues-am
 
@@ -6,8 +6,8 @@
 
 ;;; Commentary:
 
-;; JSON cache read/write, cache invalidation, and refresh commands for
-;; the jupiterweb package.
+;; Fast Elisp cache read/write, legacy JSON cache reading, cache invalidation,
+;; and refresh commands for the jupiterweb package.
 
 ;;; Code:
 
@@ -17,14 +17,28 @@
 (require 'jupiterweb-parse)
 
 (defun jupiterweb--cache-file-curriculum ()
-  "Return the cache filename for the current curriculum."
+  "Return the Emacs Lisp cache filename for the current curriculum."
+  (expand-file-name
+   (format "grade-codcg-%s-codcur-%s-codhab-%s-tipo-%s.el"
+           jupiterweb-codcg jupiterweb-codcur jupiterweb-codhab jupiterweb-tipo)
+   jupiterweb-cache-directory))
+
+(defun jupiterweb--cache-file-curriculum-json ()
+  "Return the legacy JSON cache filename for the current curriculum."
   (expand-file-name
    (format "grade-codcg-%s-codcur-%s-codhab-%s-tipo-%s.json"
            jupiterweb-codcg jupiterweb-codcur jupiterweb-codhab jupiterweb-tipo)
    jupiterweb-cache-directory))
 
 (defun jupiterweb--cache-file-discipline (sgldis)
-  "Return the cache filename for discipline SGLDIS."
+  "Return the Emacs Lisp cache filename for discipline SGLDIS."
+  (expand-file-name
+   (format "disciplina-%s-codcur-%s-codhab-%s.el"
+           sgldis jupiterweb-codcur jupiterweb-codhab)
+   jupiterweb-cache-directory))
+
+(defun jupiterweb--cache-file-discipline-json (sgldis)
+  "Return the legacy JSON cache filename for discipline SGLDIS."
   (expand-file-name
    (format "disciplina-%s-codcur-%s-codhab-%s.json"
            sgldis jupiterweb-codcur jupiterweb-codhab)
@@ -63,6 +77,26 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
       (vconcat (mapcar #'jupiterweb--plist-to-json data))))
    (t data)))
 
+(defun jupiterweb--el-read-plist (filename)
+  "Read a cached Elisp plist from FILENAME."
+  (when (file-exists-p filename)
+    (with-temp-buffer
+      (insert-file-contents filename)
+      (goto-char (point-min))
+      (condition-case nil
+          (read (current-buffer))
+        (error nil)))))
+
+(defun jupiterweb--el-write (filename data)
+  "Write DATA as an Emacs Lisp expression to FILENAME."
+  (jupiterweb--ensure-cache-directory)
+  (with-temp-file filename
+    (let ((print-level nil)
+          (print-length nil)
+          (print-circle t))
+      (prin1 data (current-buffer))
+      (insert "\n"))))
+
 (defun jupiterweb--json-read-plist (filename)
   "Read JSON from FILENAME and return a plist."
   (when (file-exists-p filename)
@@ -86,37 +120,43 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
 
 (defun jupiterweb-cache-read-curriculum ()
   "Read curriculum data from the cache file."
-  (let ((file (jupiterweb--cache-file-curriculum)))
-    (when (file-exists-p file)
-      (setq jupiterweb--curriculum-memory (jupiterweb--json-read-plist file))
-      jupiterweb--curriculum-memory)))
+  (let* ((file (jupiterweb--cache-file-curriculum))
+         (legacy-file (jupiterweb--cache-file-curriculum-json))
+         (data (or (jupiterweb--el-read-plist file)
+                   (jupiterweb--json-read-plist legacy-file))))
+    (when data
+      (setq jupiterweb--curriculum-memory data)
+      data)))
 
 (defun jupiterweb-cache-write-curriculum (curriculum)
   "Write CURRICULUM data to the cache file."
-  (jupiterweb--json-write (jupiterweb--cache-file-curriculum) curriculum))
+  (jupiterweb--el-write (jupiterweb--cache-file-curriculum) curriculum))
 
 (defun jupiterweb-cache-read-discipline (sgldis)
   "Read discipline SGLDIS syllabus from the cache file."
-  (let ((file (jupiterweb--cache-file-discipline sgldis)))
-    (when (file-exists-p file)
-      (let ((data (jupiterweb--json-read-plist file)))
-        (when data
-          (setq jupiterweb--discipline-memory
-                (cons (cons sgldis data)
-                      (assq-delete-all sgldis jupiterweb--discipline-memory))))
-        data))))
+  (let* ((file (jupiterweb--cache-file-discipline sgldis))
+         (legacy-file (jupiterweb--cache-file-discipline-json sgldis))
+         (data (or (jupiterweb--el-read-plist file)
+                   (jupiterweb--json-read-plist legacy-file))))
+    (when data
+      (setq jupiterweb--discipline-memory
+            (cons (cons sgldis data)
+                  (assoc-delete-all sgldis jupiterweb--discipline-memory)))
+      data)))
 
 (defun jupiterweb-cache-write-discipline (sgldis data)
   "Write discipline SGLDIS syllabus DATA to the cache file."
-  (jupiterweb--json-write (jupiterweb--cache-file-discipline sgldis) data))
+  (jupiterweb--el-write (jupiterweb--cache-file-discipline sgldis) data))
 
 (defun jupiterweb-cache-curriculum-exists-p ()
   "Return non-nil if a curriculum cache file exists for the current course."
-  (file-exists-p (jupiterweb--cache-file-curriculum)))
+  (or (file-exists-p (jupiterweb--cache-file-curriculum))
+      (file-exists-p (jupiterweb--cache-file-curriculum-json))))
 
 (defun jupiterweb-cache-discipline-exists-p (sgldis)
   "Return non-nil if a discipline cache file exists for SGLDIS."
-  (file-exists-p (jupiterweb--cache-file-discipline sgldis)))
+  (or (file-exists-p (jupiterweb--cache-file-discipline sgldis))
+      (file-exists-p (jupiterweb--cache-file-discipline-json sgldis))))
 
 (defun jupiterweb-cache-clear-memory ()
   "Clear all in-memory caches."
@@ -128,15 +168,18 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
   "Clear disk cache.  If COURSE-ONLY is non-nil, remove only the current course."
   (interactive "P")
   (if course-only
-      (let ((cur-file (jupiterweb--cache-file-curriculum)))
+      (let ((cur-file (jupiterweb--cache-file-curriculum))
+            (legacy-cur-file (jupiterweb--cache-file-curriculum-json)))
         (when (file-exists-p cur-file)
           (delete-file cur-file))
+        (when (file-exists-p legacy-cur-file)
+          (delete-file legacy-cur-file))
         (dolist (f (directory-files jupiterweb-cache-directory t
-                                     (format "^disciplina-.*-codcur-%s-codhab-%s\\.json$"
+                                     (format "^disciplina-.*-codcur-%s-codhab-%s\\.\\(el\\|json\\)$"
                                              jupiterweb-codcur jupiterweb-codhab)))
           (delete-file f)))
     (when (file-directory-p jupiterweb-cache-directory)
-      (dolist (f (directory-files jupiterweb-cache-directory t "\\.json$"))
+      (dolist (f (directory-files jupiterweb-cache-directory t "\\.\\(el\\|json\\)$"))
         (when (file-regular-p f)
           (delete-file f))))))
 
@@ -159,6 +202,39 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
               (error
                (jupiterweb--build-syllabus-fallback sgldis nil
                  (format "Failed to fetch: %s" (error-message-string err))))))))))
+
+(defun jupiterweb--curriculum-discipline-name (sgldis)
+  "Return the curriculum name for SGLDIS when available."
+  (let ((curriculum (or jupiterweb--curriculum-memory
+                        (jupiterweb-cache-read-curriculum)))
+        (name nil))
+    (dolist (d (plist-get curriculum :disciplines))
+      (when (and (null name)
+                 (equal (plist-get d :sgldis) sgldis))
+        (setq name (plist-get d :name))))
+    name))
+
+(defun jupiterweb--update-curriculum-discipline-name (sgldis name)
+  "Update cached curriculum entry SGLDIS with NAME when useful."
+  (when (and jupiterweb--curriculum-memory name
+             (not (string-empty-p name)))
+    (let ((changed nil))
+      (setq jupiterweb--curriculum-memory
+            (plist-put
+             jupiterweb--curriculum-memory
+             :disciplines
+             (mapcar
+              (lambda (d)
+                (if (equal (plist-get d :sgldis) sgldis)
+                    (let ((record (copy-sequence d)))
+                      (unless (equal (plist-get record :name) name)
+                        (setq changed t)
+                        (setq record (plist-put record :name name)))
+                      record)
+                  d))
+              (plist-get jupiterweb--curriculum-memory :disciplines))))
+      (when changed
+        (jupiterweb-cache-write-curriculum jupiterweb--curriculum-memory)))))
 
 ;;;###autoload
 (defun jupiterweb-refresh-curriculum-cache ()
@@ -189,21 +265,31 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
 (defun jupiterweb-refresh-discipline-cache (sgldis)
   "Fetch, parse, cache, and return syllabus data for SGLDIS."
   (interactive "sDiscipline code (sgldis): ")
-  (let* ((html (jupiterweb-fetch-discipline-html sgldis))
-         (data (jupiterweb-parse-discipline html sgldis
-                (jupiterweb--discipline-url sgldis))))
-    (if (null data)
-        (jupiterweb--build-syllabus-fallback sgldis nil
-          "Could not parse discipline page")
-      (let ((record (append data
-                            (list :syllabus-status "cached"
-                                  :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
-                                  :raw-text html))))
-        (setq jupiterweb--discipline-memory
-              (cons (cons sgldis record)
-                    (assq-delete-all sgldis jupiterweb--discipline-memory)))
-        (jupiterweb-cache-write-discipline sgldis record)
-        record))))
+  (let ((display-name (jupiterweb--curriculum-discipline-name sgldis)))
+    (message "JupiterWeb: buscando disciplina %s%s"
+             sgldis
+             (if (and display-name
+                      (not (string-empty-p display-name))
+                      (not (string= display-name sgldis)))
+                 (format " - %s" display-name)
+               ""))
+    (let* ((html (jupiterweb-fetch-discipline-html sgldis))
+           (data (jupiterweb-parse-discipline html sgldis
+                  (jupiterweb--discipline-url sgldis)))
+           (record (if data
+                       (append data
+                               (list :syllabus-status "cached"
+                                     :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                                     :raw-text html))
+                     (jupiterweb--build-syllabus-fallback
+                      sgldis display-name "Could not parse discipline page"))))
+      (setq jupiterweb--discipline-memory
+            (cons (cons sgldis record)
+                  (assoc-delete-all sgldis jupiterweb--discipline-memory)))
+      (jupiterweb-cache-write-discipline sgldis record)
+      (jupiterweb--update-curriculum-discipline-name
+       sgldis (plist-get record :name))
+      record)))
 
 ;;;###autoload
 (defun jupiterweb-refresh-all-discipline-caches ()

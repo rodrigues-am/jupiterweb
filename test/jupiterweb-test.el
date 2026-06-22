@@ -213,15 +213,25 @@
   (should (null (jupiterweb--to-integer nil)))
   (should (equal (jupiterweb--to-integer 42) 42)))
 
+;;; Curriculum parser
+
+(ert-deftest jupiterweb-test-parse-curriculum-uses-name-from-next-td ()
+  "Test that curriculum parser uses the discipline name cell, not link text."
+  (let* ((html "<tr><td><a href=\"obterDisciplina?sgldis=4300157&codcur=43031&codhab=0\" class=\"link_gray\">4300157</a></td><td> Ciência, Educação e Linguagem</td></tr>")
+         (disciplines (jupiterweb-parse-curriculum html))
+         (first (car disciplines)))
+    (should (equal (plist-get first :sgldis) "4300157"))
+    (should (equal (plist-get first :name) "Ciência, Educação e Linguagem"))))
+
 ;;; Cache filename helpers
 
 (ert-deftest jupiterweb-test-cache-filenames ()
-  "Test that cache filenames match SPEC.md patterns."
+  "Test that cache filenames use fast Emacs Lisp cache files."
   (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-cache/"))
     (should (equal (jupiterweb--cache-file-curriculum)
-                   "/tmp/test-jupiterweb-cache/grade-codcg-43-codcur-43031-codhab-0-tipo-N.json"))
+                   "/tmp/test-jupiterweb-cache/grade-codcg-43-codcur-43031-codhab-0-tipo-N.el"))
     (should (equal (jupiterweb--cache-file-discipline "4300151")
-                   "/tmp/test-jupiterweb-cache/disciplina-4300151-codcur-43031-codhab-0.json"))))
+                   "/tmp/test-jupiterweb-cache/disciplina-4300151-codcur-43031-codhab-0.el"))))
 
 ;;; Cache roundtrip
 
@@ -239,6 +249,8 @@
                                                      :name "Test Discipline")))))
       (jupiterweb-cache-write-curriculum curriculum)
       (should (jupiterweb-cache-curriculum-exists-p))
+      (should (file-exists-p (jupiterweb--cache-file-curriculum)))
+      (should-not (file-exists-p (jupiterweb--cache-file-curriculum-json)))
       (let ((read-back (jupiterweb-cache-read-curriculum)))
         (should (plist-get read-back :codcur))
         (should (equal (plist-get (car (plist-get read-back :disciplines)) :sgldis)
@@ -256,9 +268,74 @@
     (let ((data (list :sgldis "4300151" :name "Test Discipline" :credits-lecture 4)))
       (jupiterweb-cache-write-discipline "4300151" data)
       (should (jupiterweb-cache-discipline-exists-p "4300151"))
+      (should (file-exists-p (jupiterweb--cache-file-discipline "4300151")))
+      (should-not (file-exists-p (jupiterweb--cache-file-discipline-json "4300151")))
       (let ((read-back (jupiterweb-cache-read-discipline "4300151")))
         (should read-back)
         (should (equal (plist-get read-back :sgldis) "4300151"))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-cache-reads-legacy-json ()
+  "Test that legacy JSON cache files are still readable."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-cache-json/"))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (jupiterweb--ensure-cache-directory)
+    (let ((data (list :sgldis "4300151" :name "Legacy JSON Discipline")))
+      (jupiterweb--json-write (jupiterweb--cache-file-discipline-json "4300151") data)
+      (should (jupiterweb-cache-discipline-exists-p "4300151"))
+      (let ((read-back (jupiterweb-cache-read-discipline "4300151")))
+        (should (equal (plist-get read-back :name) "Legacy JSON Discipline"))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-refresh-discipline-message-and-name-update ()
+  "Test refresh announces discipline name and updates code-only curriculum names."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-refresh-msg/")
+        (messages nil))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (setq jupiterweb--curriculum-memory
+          (list :disciplines (list (list :sgldis "4300157"
+                                         :name "Ciência, Educação e Linguagem"))))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (push (apply #'format fmt args) messages)))
+              ((symbol-function 'jupiterweb-fetch-discipline-html)
+               (lambda (_sgldis) "<html>fixture</html>"))
+              ((symbol-function 'jupiterweb-parse-discipline)
+               (lambda (_html sgldis _source-url)
+                 (list :sgldis sgldis :name "Ciência, Educação e Linguagem"))))
+      (jupiterweb-refresh-discipline-cache "4300157")
+      (should (member "JupiterWeb: buscando disciplina 4300157 - Ciência, Educação e Linguagem"
+                      messages))
+      (should (equal (plist-get (car (plist-get jupiterweb--curriculum-memory :disciplines)) :name)
+                     "Ciência, Educação e Linguagem")))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-refresh-discipline-caches-named-fallback ()
+  "Test refresh caches a named fallback when parsing fails."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-refresh-fallback/"))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (setq jupiterweb--curriculum-memory
+          (list :disciplines (list (list :sgldis "4300157"
+                                         :name "Ciência, Educação e Linguagem"))))
+    (cl-letf (((symbol-function 'jupiterweb-fetch-discipline-html)
+               (lambda (_sgldis) "<html>fixture</html>"))
+              ((symbol-function 'jupiterweb-parse-discipline)
+               (lambda (&rest _args) nil)))
+      (let ((record (jupiterweb-refresh-discipline-cache "4300157")))
+        (should (equal (plist-get record :name) "Ciência, Educação e Linguagem"))
+        (should (equal (plist-get record :syllabus-status) "fallback"))
+        (should (file-exists-p (jupiterweb--cache-file-discipline "4300157")))
+        (should (equal (plist-get (jupiterweb-cache-read-discipline "4300157") :name)
+                       "Ciência, Educação e Linguagem"))))
     (jupiterweb-cache-clear-memory)
     (when (file-directory-p jupiterweb-cache-directory)
       (delete-directory jupiterweb-cache-directory t))))
@@ -289,6 +366,27 @@
                      "Fundamentos de Mecanica (4300151)"))
       (should (equal (jupiterweb--format-code-name record)
                      "4300151 - Fundamentos de Mecanica")))))
+
+(ert-deftest jupiterweb-test-selection-and-insertion-use-parsed-discipline-name ()
+  "Test selection and insertion use the name cell from the curriculum table."
+  (let ((jupiterweb-cache-fetch-policy 'manual))
+    (setq jupiterweb--curriculum-memory
+          (list :disciplines
+                (jupiterweb-parse-curriculum
+                 "<tr><td><a href=\"obterDisciplina?sgldis=4300157&codcur=43031&codhab=0\" class=\"link_gray\"> 4300157</a></td><td> Ciência, Educação e Linguagem</td></tr>")))
+    (let* ((candidates (jupiterweb--build-candidates))
+           (candidate (caar candidates)))
+      (should (equal candidate "Ciência, Educação e Linguagem (4300157)"))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _args) candidate)))
+        (with-temp-buffer
+          (jupiterweb-insert-name-code)
+          (should (equal (buffer-string)
+                         "Ciência, Educação e Linguagem (4300157)")))
+        (with-temp-buffer
+          (jupiterweb-insert-code-name)
+          (should (equal (buffer-string)
+                         "4300157 - Ciência, Educação e Linguagem")))))))
 
 ;;; Retry helper
 

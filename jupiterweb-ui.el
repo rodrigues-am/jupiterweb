@@ -272,6 +272,8 @@ When called interactively, show the selected discipline in the echo area."
 
 ;; Consult and Marginalia (JW-120, JW-121, JW-122)
 
+(defvar marginalia-command-categories)
+
 (when (require 'marginalia nil t)
   (add-to-list 'marginalia-command-categories
                (cons 'jupiterweb-select-discipline

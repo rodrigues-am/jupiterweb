@@ -99,7 +99,7 @@ Responsibilities:
 - `jupiterweb-vars.el`: customization group, variables, in-memory state.
 - `jupiterweb-http.el`: HTTP retrieval, URL building, decoding, retries.
 - `jupiterweb-parse.el`: curriculum parser and discipline parser.
-- `jupiterweb-cache.el`: JSON cache read/write, cache invalidation, refresh commands.
+- `jupiterweb-cache.el`: fast Emacs Lisp cache read/write, legacy JSON cache read fallback, cache invalidation, refresh commands.
 - `jupiterweb-ui.el`: selection, insertion, Consult/Marginalia, view buffer.
 - `jupiterweb-transient.el`: Transient menu.
 - `jupiterweb-export.el`: JSON export.

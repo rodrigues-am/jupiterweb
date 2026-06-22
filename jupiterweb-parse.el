@@ -77,7 +77,7 @@ Tries cp1252, iso-8859-1, then utf-8, falling back to iso-8859-1 with replace."
               (condition-case nil
                   (setq decoded (decode-coding-string bytes 'utf-8))
                 (coding-system-error
-                 (setq decoded (decode-coding-string bytes 'iso-8859-1) t)))))))
+                 (setq decoded (decode-coding-string bytes 'iso-8859-1))))))))
         (or decoded "")))))
 
 ;; CP1252 control-character mapping (ported from Python CONTROLES_CP1252)
@@ -495,6 +495,10 @@ Ported from Python extrair_numero.  Case-insensitive search."
            url)
       (match-string 1 url))))
 
+(defun jupiterweb--html-cell-to-text (html)
+  "Return cleaned plain text for one HTML cell fragment HTML."
+  (jupiterweb--clean-field-text (jupiterweb--html-to-plain-text html)))
+
 (defun jupiterweb-parse-curriculum (html)
   "Extract discipline records from a JupiterWeb curriculum HTML page."
   (let ((seen nil)
@@ -503,16 +507,26 @@ Ported from Python extrair_numero.  Case-insensitive search."
       (insert html)
       (goto-char (point-min))
       (while (re-search-forward
-              "<a[^>]*href=\"[^\"]*obterDisciplina?[^\"]*sgldis=\\([^\"]*?\\)[&\"].*?>\\([^<]*\\)</a>"
+              (concat "<a[^>]*href=\"[^\"]*obterDisciplina?[^\"]*sgldis=\\([^\"]*?\\)[&\"]"
+                      ".*?>\\([^<]*\\)</a>"
+                      "\\s-*</td>\\s-*<td[^>]*>\\(.*?\\)</td>")
               nil t)
-        (let* ((sgldis (match-string 1))
-               (link-text (jupiterweb--clean-field-text (match-string 2)))
-               (sgldis (if sgldis (jupiterweb--clean-field-text sgldis) nil)))
+        (let* ((raw-sgldis (match-string 1))
+               (raw-link-text (match-string 2))
+               (raw-name-cell (match-string 3))
+               (sgldis (if raw-sgldis (jupiterweb--clean-field-text raw-sgldis) nil))
+               (link-text (jupiterweb--clean-field-text raw-link-text))
+               (name-cell (jupiterweb--html-cell-to-text raw-name-cell))
+               (name (if (and name-cell
+                              (not (string-empty-p name-cell))
+                              (not (string= name-cell sgldis)))
+                         name-cell
+                       link-text)))
           (when (and sgldis
                      (not (member sgldis seen))
                      (not (string-empty-p sgldis)))
             (push sgldis seen)
-            (push (list :sgldis sgldis :name link-text) disciplines)))))
+            (push (list :sgldis sgldis :name name) disciplines)))))
     (nreverse disciplines)))
 
 (defun jupiterweb-parse-discipline (html &optional sgldis source-url)

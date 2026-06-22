@@ -127,7 +127,7 @@ When Transient is not available, all commands work via =M-x=.
 The package uses two cache layers:
 
 - *in-memory cache* :: lives in =jupiterweb--curriculum-memory= and =jupiterweb--discipline-memory= for the current Emacs session;
-- *disk cache* :: JSON files stored in =jupiterweb-cache-directory= (default: =~/.emacs.d/jupiterweb/=).
+- *disk cache* :: fast Emacs Lisp expression files stored in =jupiterweb-cache-directory= (default: =~/.emacs.d/jupiterweb/=). Legacy JSON cache files are still readable for migration.
 
 The variable =jupiterweb-cache-fetch-policy= controls when missing syllabus data is fetched:
 
@@ -143,12 +143,14 @@ Useful commands:
 | =jupiterweb-refresh-discipline-cache= | Fetch one syllabus page and cache it |
 | =jupiterweb-refresh-all-discipline-caches= | Refresh all non-provisional syllabi |
 | =jupiterweb-cache-clear-memory= | Clear only in-memory cache |
-| =jupiterweb-cache-clear-disk= | Remove JSON cache files from disk |
+| =jupiterweb-cache-clear-disk= | Remove =.el= cache files and legacy =.json= cache files from disk |
 
 Cache file naming follows the current course parameters:
 
-- curriculum :: =grade-codcg-43-codcur-43031-codhab-0-tipo-N.json=
-- discipline :: =disciplina-4300151-codcur-43031-codhab-0.json=
+- curriculum :: =grade-codcg-43-codcur-43031-codhab-0-tipo-N.el=
+- discipline :: =disciplina-4300151-codcur-43031-codhab-0.el=
+
+The =.el= cache files contain printed Emacs Lisp plists and are read back with =read=, which is faster and simpler than JSON for Emacs-internal cache data. JSON is still used for the explicit export command.
 
 This means changing =jupiterweb-codcur= or =jupiterweb-codhab= naturally switches to a different cache namespace.
 
@@ -256,7 +258,7 @@ emacs --batch --eval "
     (ert-run-tests-batch-and-exit))"
 #+end_src
 
-All tests run offline. 21 ERT tests covering URL builders, decoding, normalization, HTML-to-text, key/integer helpers, cache roundtrip, export JSON shape, transient loading, format helpers, retry logic, and fallback records.
+All tests run offline. 27 ERT tests covering URL builders, decoding, normalization, HTML-to-text, curriculum name-cell parsing, key/integer helpers, fast =.el= cache roundtrip, legacy JSON cache reading, export JSON shape, transient loading, selection/insertion formatting, refresh progress messages, named fallback caching, retry logic, and fallback records.
 
 * Notes
 
