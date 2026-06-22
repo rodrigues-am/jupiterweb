@@ -12,6 +12,16 @@ dist/
 
 # Backup files
 *~
+\#*\#
+.\#*
 
 # Undo-tree save-files
 *.~undo-tree
+
+# Auto-save / tramp
+auto-save-list
+tramp
+
+# Token / secrets
+*.token
+/tmp/gh_token
