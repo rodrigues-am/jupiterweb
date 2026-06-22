@@ -15,6 +15,34 @@
 (require 'jupiterweb-vars)
 (require 'jupiterweb-cache)
 
+(defun jupiterweb--alist-to-json (data)
+  "Recursively convert DATA for JSON serialization.
+Converts alists to hash tables and lists to vectors."
+  (cond
+   ((null data) nil)
+   ((stringp data) data)
+   ((numberp data) data)
+   ((eq data t) t)
+   ((symbolp data) (symbol-name data))
+   ((hash-table-p data)
+    (let ((ht (make-hash-table :test 'equal)))
+      (maphash (lambda (k v) (puthash k (jupiterweb--alist-to-json v) ht)) data)
+      ht))
+   ((listp data)
+    (if (consp (car data))
+        ;; It's an alist — convert to hash table
+        (let ((ht (make-hash-table :test 'equal)))
+          (dolist (pair data)
+            (puthash (cond ((stringp (car pair)) (car pair))
+                           ((symbolp (car pair)) (symbol-name (car pair)))
+                           (t (format "%s" (car pair))))
+                     (jupiterweb--alist-to-json (cdr pair))
+                     ht))
+          ht)
+      ;; It's a plain list (array) — convert to vector
+      (vconcat (mapcar #'jupiterweb--alist-to-json data))))
+   (t data)))
+
 (defun jupiterweb--plist-to-json-key (keyword)
   "Convert a keyword like :credits-lecture to \"credits_lecture\"."
   (let ((name (symbol-name keyword)))
@@ -76,7 +104,7 @@ With prefix arg (FETCH-MISSING non-nil), fetch missing syllabi first."
         (jupiterweb--ensure-cache-directory)
         (with-temp-buffer
           (let ((json-encoding-pretty-print t))
-            (json-insert export-data))
+            (insert (json-serialize (jupiterweb--alist-to-json export-data))))
           (write-region (point-min) (point-max) file nil nil nil nil))
         (message "Exported to %s" file)
         export-data))))

@@ -12,6 +12,9 @@
 ;;; Code:
 
 (require 'jupiterweb-vars)
+(require 'jupiterweb-cache)
+(require 'jupiterweb-ui)
+(require 'jupiterweb-export)
 
 (when (require 'transient nil t)
 

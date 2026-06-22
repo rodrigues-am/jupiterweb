@@ -36,6 +36,33 @@
     (make-directory jupiterweb-cache-directory t))
   jupiterweb-cache-directory)
 
+(defun jupiterweb--plist-to-json (data)
+  "Recursively convert DATA for JSON serialization.
+Converts plists to hash tables and lists-of-plists to vectors,
+so that `json-serialize' can encode them correctly in Emacs 30+."
+  (cond
+   ((null data) nil)
+   ((stringp data) data)
+   ((numberp data) data)
+   ((eq data t) t)
+   ((keywordp data) (substring (symbol-name data) 1))
+   ((symbolp data) (symbol-name data))
+   ((listp data)
+    ;; Check if it's a plist (first element is a keyword)
+    (if (keywordp (car data))
+        ;; It's a plist — convert to alist for json-serialize
+        (let ((ht (make-hash-table :test 'equal))
+              (tail data))
+          (while tail
+            (let ((key (substring (symbol-name (car tail)) 1))
+                  (val (cadr tail)))
+              (puthash key (jupiterweb--plist-to-json val) ht)
+              (setq tail (cddr tail))))
+          ht)
+      ;; It's a list (array) — convert to vector
+      (vconcat (mapcar #'jupiterweb--plist-to-json data))))
+   (t data)))
+
 (defun jupiterweb--json-read-plist (filename)
   "Read JSON from FILENAME and return a plist."
   (when (file-exists-p filename)
@@ -53,10 +80,8 @@
   "Write DATA as JSON to FILENAME."
   (jupiterweb--ensure-cache-directory)
   (with-temp-buffer
-    (let ((json-encoding-pretty-print t)
-          (json-object-type 'plist)
-          (json-array-type 'list))
-      (json-insert data))
+    (let ((json-encoding-pretty-print t))
+      (insert (json-serialize (jupiterweb--plist-to-json data))))
     (write-region (point-min) (point-max) filename nil nil nil nil)))
 
 (defun jupiterweb-cache-read-curriculum ()
