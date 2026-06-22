@@ -81,7 +81,7 @@ Start with =JW-000=. Then proceed sequentially unless blocked.
 
 * Phase 0 — Repository preparation
 
-** NEXT [#A] JW-000 Create or verify project control files :D1:docs:
+** DONE [#A] JW-000 Create or verify project control files :D1:docs:
 :PROPERTIES:
 :ID: JW-000
 :FILES: SPEC.md todo.org DECISIONS.md README.md
@@ -107,7 +107,7 @@ Minimum =README.md=:
 Emacs Lisp package for querying, caching, viewing, inserting, and exporting USP JupiterWeb curriculum and syllabus data.
 #+end_src
 
-** TODO [#A] JW-001 Inspect Python scraper and write porting map :D1:port:docs:
+** NEXT [#A] JW-001 Inspect Python scraper and write porting map :D1:port:docs:
 :PROPERTIES:
 :ID: JW-001
 :FILES: scrape_jupiterweb.py DECISIONS.md
