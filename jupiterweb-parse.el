@@ -55,8 +55,30 @@
 ;; Decoding and normalization functions will be implemented in JW-020 through JW-024.
 
 (defun jupiterweb--decode-response (bytes-or-buffer)
-  "Decode a JupiterWeb HTTP response robustly."
-  (error "jupiterweb--decode-response not yet implemented"))
+  "Decode a JupiterWeb HTTP response robustly.
+Tries cp1252, iso-8859-1, then utf-8, falling back to iso-8859-1 with replace."
+  (let ((bytes
+         (if (bufferp bytes-or-buffer)
+             (with-current-buffer bytes-or-buffer
+               (save-excursion
+                 (goto-char (point-min))
+                 (re-search-forward "\r?\n\r?\n" nil t)
+                 (buffer-substring-no-properties (point) (point-max))))
+           bytes-or-buffer)))
+    (if (null bytes)
+        nil
+      (let (decoded)
+        (condition-case nil
+            (setq decoded (decode-coding-string bytes 'windows-1252))
+          (coding-system-error
+           (condition-case nil
+               (setq decoded (decode-coding-string bytes 'iso-8859-1))
+             (coding-system-error
+              (condition-case nil
+                  (setq decoded (decode-coding-string bytes 'utf-8))
+                (coding-system-error
+                 (setq decoded (decode-coding-string bytes 'iso-8859-1) t)))))))
+        (or decoded "")))))
 
 ;; CP1252 control-character mapping (ported from Python CONTROLES_CP1252)
 ;; Maps CP1252 control codepoints to their proper Unicode characters.
@@ -355,43 +377,261 @@ Ported from Python extrair_numero.  Case-insensitive search."
 
 (defun jupiterweb--normalize-unit (unit)
   "Normalize USP unit names to abbreviations."
-  (error "jupiterweb--normalize-unit not yet implemented"))
+  (if (or (null unit) (string-empty-p unit))
+      nil
+    (let ((u unit))
+      (cond
+       ((string-match-p "Fonoaudiologia\\|Fisioterapia\\|Terapia Ocupacional" u) "MFT")
+       ((string-match-p "Filosofia, Letras e Ciencias Humanas\\|FFLCH" u) "FFLCH")
+       ((string-match-p "Instituto de Fisica" u) "IF")
+       ((string-match-p "Instituto de Matematica" u) "IME")
+       ((string-match-p "Faculdade de Educacao" u) "FE")
+       ((string-match-p "Instituto de Quimica" u) "IQ")
+       ((string-match-p "Instituto de Geociencias" u) "IGc")
+       ((string-match-p "Instituto de Biociencias" u) "IB")
+       ((string-match-p "Instituto de Astronomia" u) "IAG")
+       ((string-match-p "Escola de Artes" u) "EACH")
+       ((string-match-p "Medicina" u) "MFT")
+       (t u)))))
 
 (defun jupiterweb--heading-regexp (title)
   "Return a regexp matching an isolated section heading line for TITLE."
-  (error "jupiterweb--heading-regexp not yet implemented"))
+  (let ((escaped (regexp-quote title)))
+    (concat "\\(?:^\\|\\n\\)\\s-*" escaped "\\s-*:\\?\\s-*\\(?:\\n\\|$\\)")))
+
+(defun jupiterweb--clean-section (section)
+  "Clean a section extracted from the page."
+  (if (or (null section) (string-empty-p section))
+      nil
+    (let ((s section))
+      (setq s (string-trim s))
+      (setq s (replace-regexp-in-string "\nTradicao:.*" "" s t t))
+      (setq s (replace-regexp-in-string "^\\s-*[\\*:=-]+\\s-*" "" s t t))
+      (setq s (replace-regexp-in-string "\n\\{3,\\}" "\n\n" s t t))
+      (jupiterweb--clean-field-text s))))
 
 (defun jupiterweb--extract-section (text title)
   "Extract the content of section TITLE from TEXT, stopping at the next heading."
-  (error "jupiterweb--extract-section not yet implemented"))
+  (let ((case-fold-search t)
+        (regexp (jupiterweb--heading-regexp title)))
+    (if (not (string-match regexp text))
+        nil
+      (let ((start (match-end 0))
+            (end (length text)))
+        (dolist (other jupiterweb--syllabus-delimiter-labels)
+          (let ((other-regexp (jupiterweb--heading-regexp other)))
+            (when (and (not (string-equal (downcase other) (downcase title)))
+                       (string-match other-regexp text start))
+              (setq end (min end (match-beginning 0))))))
+        (jupiterweb--clean-section (substring text start end))))))
 
 (defun jupiterweb--extract-sections (text)
   "Extract all known sections from TEXT."
-  (error "jupiterweb--extract-sections not yet implemented"))
+  (let ((result nil))
+    (dolist (label jupiterweb--syllabus-section-labels)
+      (let ((key (jupiterweb--normalize-key label))
+            (value (jupiterweb--extract-section text label)))
+        (push (cons key value) result)))
+    (nreverse result)))
 
 (defun jupiterweb--extract-label-value (text label)
   "Extract a short label value from TEXT without capturing the next heading."
-  (error "jupiterweb--extract-label-value not yet implemented"))
+  (let ((case-fold-search t)
+        (escaped (regexp-quote label)))
+    (let ((m1 (string-match
+               (concat "\\(?:^\\|\\n\\)\\s-*" escaped "\\s-*:\\s-*\\n+[ \\t\xa0]*\\([^\n]*\\)")
+               text)))
+      (if m1
+          (let ((val (jupiterweb--clean-field-text (match-string 1 text))))
+            (if (or (null val)
+                    (member (downcase val)
+                            (mapcar #'downcase jupiterweb--syllabus-delimiter-labels)))
+                nil
+              val))
+        (let ((m2 (string-match
+                   (concat escaped "\\s-*:\\s-*\\([^\n]+\\)")
+                   text)))
+          (if m2
+              (let ((val (jupiterweb--clean-field-text (match-string 1 text))))
+                (if (or (null val)
+                        (member (downcase val)
+                                (mapcar #'downcase jupiterweb--syllabus-delimiter-labels)))
+                    nil
+                  val))
+            nil))))))
 
 (defun jupiterweb--extract-instructors (text)
   "Convert \"12345 - Name\" occurrences into structured instructor records."
-  (error "jupiterweb--extract-instructors not yet implemented"))
+  (if (or (null text) (string-empty-p text))
+      nil
+    (let ((cleaned (jupiterweb--clean-field-text text)))
+      (if (null cleaned)
+          nil
+        (let ((instructors nil)
+              (regexp "\\([0-9]\\{3,\\}\\)\\s-*-\\s-*\\(.*?\\)\\(?:\\s-+[0-9]\\{3,\\}\\s-*-\\|$\\)")
+              (pos 0))
+          (while (string-match regexp cleaned pos)
+            (let ((code (match-string 1 cleaned))
+                  (name (jupiterweb--clean-field-text (match-string 2 cleaned))))
+              (when (and code name)
+                (push (list :code code :name name) instructors))
+              (setq pos (match-end 0))))
+          (nreverse instructors))))))
 
 (defun jupiterweb--clean-record (value)
   "Recursively clean strings in records."
-  (error "jupiterweb--clean-record not yet implemented"))
+  (cond
+   ((null value) nil)
+   ((stringp value) (jupiterweb--clean-field-text value))
+   ((listp value)
+    (mapcar #'jupiterweb--clean-record value))
+   (t value)))
+
+(defun jupiterweb--extract-query-param (url param)
+  "Extract query parameter PARAM from URL, regardless of parameter order."
+  (let ((case-fold-search t))
+    (when (string-match
+           (concat "[?&]" (regexp-quote param) "=\\([^&]+\\)")
+           url)
+      (match-string 1 url))))
 
 (defun jupiterweb-parse-curriculum (html)
   "Extract discipline records from a JupiterWeb curriculum HTML page."
-  (error "jupiterweb-parse-curriculum not yet implemented"))
+  (let ((seen nil)
+        (disciplines nil))
+    (with-temp-buffer
+      (insert html)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "<a[^>]*href=\"[^\"]*obterDisciplina?[^\"]*sgldis=\\([^\"]*?\\)[&\"].*?>\\([^<]*\\)</a>"
+              nil t)
+        (let* ((sgldis (match-string 1))
+               (link-text (jupiterweb--clean-field-text (match-string 2)))
+               (sgldis (if sgldis (jupiterweb--clean-field-text sgldis) nil)))
+          (when (and sgldis
+                     (not (member sgldis seen))
+                     (not (string-empty-p sgldis)))
+            (push sgldis seen)
+            (push (list :sgldis sgldis :name link-text) disciplines)))))
+    (nreverse disciplines)))
 
 (defun jupiterweb-parse-discipline (html &optional sgldis source-url)
   "Extract syllabus data from a JupiterWeb discipline HTML page."
-  (error "jupiterweb-parse-discipline not yet implemented"))
+  (let ((text (jupiterweb--html-to-plain-text html)))
+    (if (or (null text)
+            (not (string-match-p "Cr.editos Aula" text))
+            (not (string-match-p "Disciplina:" text)))
+        nil
+      (let ((unidade-grupo
+             (when (string-match
+                    "Pr.-Reitoria de Gradua..o\\s-+\\(.*?\\)\\s-+Disciplina:"
+                    text)
+               (match-string 1 text))))
+        (let ((m-ident (string-match
+                        "Disciplina:\\s-*\\([^\n-]+?\\)\\s-*-\\s-*\\(.+?\\)\\(?:\\n\\s-*Cr.editos Aula:\\)"
+                        text)))
+          (if (not m-ident)
+              nil
+            (let* ((sgldis-parsed (jupiterweb--clean-field-text (match-string 1 text)))
+                   (nomes (split-string (match-string 2 text) "\n"))
+                   (names-clean nil))
+              (dolist (ln nomes)
+                (let ((cleaned (jupiterweb--clean-field-text ln)))
+                  (when cleaned
+                    (push cleaned names-clean))))
+              (setq names-clean (nreverse names-clean))
+              (let* ((nome-disciplina (car names-clean))
+                     (nome-disciplina-ingles (cadr names-clean))
+                     (u-parts (when unidade-grupo (split-string unidade-grupo "\n")))
+                     (u-clean (delq nil (mapcar #'jupiterweb--clean-field-text u-parts)))
+                     (unidade (jupiterweb--normalize-unit (car u-clean)))
+                     (grupo (cadr u-clean))
+                     (cred-aula (jupiterweb--extract-number text "Cr.editos\\s-+Aula:\\s-*\\([0-9]+\\)"))
+                     (cred-trabalho (jupiterweb--extract-number text "Cr.editos\\s-+Trabalho:\\s-*\\([0-9]+\\)"))
+                     (carga-total (jupiterweb--extract-number text "Carga\\s-+Hor.ria\\s-+Total:\\s-*\\([0-9]+\\)")))
+                (if (or (null cred-aula) (null cred-trabalho) (null carga-total))
+                    nil
+                  (let* ((m-extra (string-match
+                                  "Carga\\s-+Hor.ria\\s-+Total:\\s-*[0-9]+\\s-*h\\s-*\\(.*?\\)\\s-*Tipo:"
+                                  text))
+                         (extra (if m-extra (jupiterweb--clean-field-text (match-string 1 text)) ""))
+                         (ch-pcc (jupiterweb--extract-number (or extra "")
+                                  "Pr.ticas\\s-+como\\s-+Componentes\\s-+Curriculares:\\s-*\\([0-9]+\\)"))
+                         (ch-estagio (jupiterweb--extract-number (or extra "")
+                                       "Est.gio:\\s-*\\([0-9]+\\)"))
+                         (ch-ext (jupiterweb--extract-number text
+                                   "Carga\\s-+Hor.ria\\s-+de\\s-+Extens.o:\\s-*\\([0-9]+\\)"))
+                         (secoes (jupiterweb--extract-sections text))
+                         (get-section (lambda (key) (cdr (assoc key secoes))))
+                         (docentes-texto (funcall get-section "docente_s_responsavel_eis")))
+                    (when (not (funcall get-section "conteudo_programatico"))
+                      (setq secoes
+                            (cons (cons "conteudo_programatico"
+                                        (funcall get-section "programa"))
+                                  secoes)))
+                    (jupiterweb--clean-record
+                     (list :sgldis sgldis-parsed
+                           :name nome-disciplina
+                           :name-en nome-disciplina-ingles
+                           :unit unidade
+                           :group grupo
+                           :credits-lecture cred-aula
+                           :credits-work cred-trabalho
+                           :workload-total carga-total
+                           :workload-pcc ch-pcc
+                           :workload-internship ch-estagio
+                           :workload-extension ch-ext
+                           :extra extra
+                           :type (jupiterweb--extract-label-value text "Tipo")
+                           :activation (jupiterweb--extract-label-value text "Ativa..o")
+                           :deactivation (jupiterweb--extract-label-value text "Desativa..o")
+                           :syllabus (funcall get-section "ementa")
+                           :objectives (funcall get-section "objetivos")
+                           :summary-program (funcall get-section "conteudo_programatico")
+                           :program (funcall get-section "programa")
+                           :teaching-method (funcall get-section "metodo_de_ensino")
+                           :assessment-method (funcall get-section "criterio_de_avaliacao")
+                           :recovery-rule (funcall get-section "norma_de_recuperacao")
+                           :bibliography (funcall get-section "bibliografia")
+                           :basic-bibliography (funcall get-section "bibliografia_basica")
+                           :complementary-bibliography (funcall get-section "bibliografia_complementar")
+                           :sustainable-development-goals (funcall get-section "objetivos_de_desenvolvimento_sustentavel_onu")
+                           :instructors docentes-texto
+                           :instructors-list (jupiterweb--extract-instructors docentes-texto)
+                           :source-url source-url))))))))))))
 
 (defun jupiterweb--build-syllabus-fallback (sgldis &optional name observation)
   "Build a fallback syllabus record for provisional or failed disciplines."
-  (error "jupiterweb--build-syllabus-fallback not yet implemented"))
+  (list :sgldis sgldis
+        :name (or name nil)
+        :name-en nil
+        :unit nil
+        :group nil
+        :credits-lecture nil
+        :credits-work nil
+        :workload-total nil
+        :workload-pcc nil
+        :workload-internship nil
+        :workload-extension nil
+        :extra nil
+        :type nil
+        :activation nil
+        :deactivation nil
+        :syllabus nil
+        :objectives nil
+        :summary-program nil
+        :program nil
+        :teaching-method nil
+        :assessment-method nil
+        :recovery-rule nil
+        :bibliography nil
+        :basic-bibliography nil
+        :complementary-bibliography nil
+        :sustainable-development-goals nil
+        :instructors nil
+        :instructors-list nil
+        :syllabus-status "fallback"
+        :observation (or observation "Discipline not found or not parseable.")))
 
 (provide 'jupiterweb-parse)
 ;;; jupiterweb-parse.el ends here

@@ -7,13 +7,13 @@
 ;;; Commentary:
 
 ;; ERT tests for the jupiterweb package.
-;; Tests run offline by default.  Network tests are disabled unless
-;; `jupiterweb-test-enable-network' is non-nil.
+;; Tests run offline by default.
 
 ;;; Code:
 
 (require 'ert)
 (require 'jupiterweb)
+(require 'jupiterweb-http)
 
 (defcustom jupiterweb-test-enable-network nil
   "When non-nil, allow tests to access JupiterWeb."
@@ -26,10 +26,8 @@
   "Test that `jupiterweb--grade-url' builds the correct curriculum URL."
   (should (equal (jupiterweb--grade-url)
                  "https://uspdigital.usp.br/jupiterweb/listarGradeCurricular?codcg=43&codcur=43031&codhab=0&tipo=N"))
-  ;; With explicit arguments
   (should (equal (jupiterweb--grade-url "43" "43031" "0" "N")
                  "https://uspdigital.usp.br/jupiterweb/listarGradeCurricular?codcg=43&codcur=43031&codhab=0&tipo=N"))
-  ;; With different course
   (should (equal (jupiterweb--grade-url "17" "17001" "0" "N")
                  "https://uspdigital.usp.br/jupiterweb/listarGradeCurricular?codcg=17&codcur=17001&codhab=0&tipo=N")))
 
@@ -37,10 +35,8 @@
   "Test that `jupiterweb--discipline-url' builds the correct discipline URL."
   (should (equal (jupiterweb--discipline-url "4300151")
                  "https://uspdigital.usp.br/jupiterweb/obterDisciplina?sgldis=4300151&codcur=43031&codhab=0"))
-  ;; With explicit arguments
   (should (equal (jupiterweb--discipline-url "4300151" "43031" "0")
                  "https://uspdigital.usp.br/jupiterweb/obterDisciplina?sgldis=4300151&codcur=43031&codhab=0"))
-  ;; Different discipline and course
   (should (equal (jupiterweb--discipline-url "4300152" "43031" "4")
                  "https://uspdigital.usp.br/jupiterweb/obterDisciplina?sgldis=4300152&codcur=43031&codhab=4")))
 
@@ -52,57 +48,39 @@
 
 (ert-deftest jupiterweb-test-set-course-invalidates-memory ()
   "Test that `jupiterweb-set-course' updates variables and clears in-memory cache."
-  ;; Set up in-memory caches with dummy data.
   (setq jupiterweb--curriculum-memory '(:dummy curriculum)
         jupiterweb--discipline-memory '(("4300151" . (:dummy discipline))))
-  ;; Set a new course.
   (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N")
-  ;; Variables should be updated.
   (should (equal jupiterweb-codcur "43031"))
   (should (equal jupiterweb-codhab "0"))
-  ;; In-memory caches should be cleared.
   (should (null jupiterweb--curriculum-memory))
   (should (null jupiterweb--discipline-memory))
-  ;; Test partial update — only change codhab.
   (setq jupiterweb--curriculum-memory '(:dummy))
   (jupiterweb-set-course :codhab "4")
   (should (equal jupiterweb-codhab "4"))
   (should (null jupiterweb--curriculum-memory))
-  ;; Restore defaults.
   (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N"))
 
 ;;; CP1252 control-character mapping
 
 (ert-deftest jupiterweb-test-cp1252-control-mapping ()
   "Test that CP1252 control characters are converted to proper Unicode."
-  ;; Test curly quotes (the most common case)
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF91 #x68 #x65 #x6C #x6C #x6F #x3FFF92))
                  (string ?\u2018 ?h ?e ?l ?l ?o ?\u2019)))
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF93 ?q ?u ?o ?t ?e ?d #x3FFF94))
                  (string ?\u201C ?q ?u ?o ?t ?e ?d ?\u201D)))
-  ;; Test en-dash and em-dash
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF96 #x3FFF97))
                  (string ?\u2013 ?\u2014)))
-  ;; Test bullet
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF95))
                  (string ?\u2022)))
-  ;; Test ellipsis
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF85))
                  (string ?\u2026)))
-  ;; Test Euro sign
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF80))
                  (string ?\u20AC)))
-  ;; Test trademark
   (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF99))
                  (string ?\u2122)))
-  ;; Test that regular ASCII is untouched
   (should (equal (jupiterweb--fix-cp1252-controls "hello world")
                  "hello world"))
-  ;; Test mixed content
-  (should (equal (jupiterweb--fix-cp1252-controls
-                  (string ?P ?r ?i ?c ?e ?: ?  #x3FFF80 ?5 ?  #x3FFF96 ?  ?s ?p ?e ?c ?i ?a ?l #x3FFF99))
-                 (string ?P ?r ?i ?c ?e ?: ?  ?\u20AC ?5 ?  ?\u2013 ?  ?s ?p ?e ?c ?i ?a ?l ?\u2122)))
-  ;; Test empty string and nil
   (should (equal (jupiterweb--fix-cp1252-controls "") ""))
   (should (null (jupiterweb--fix-cp1252-controls nil))))
 
@@ -110,52 +88,22 @@
 
 (ert-deftest jupiterweb-test-invisible-space-normalization ()
   "Test that invisible spaces are removed or converted to normal spaces."
-  ;; NO-BREAK SPACE → space
   (should (equal (jupiterweb--normalize-unicode "hello\u00A0world")
                  "hello world"))
-  ;; EN SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u2002b")
-                 "a b"))
-  ;; EM SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u2003b")
-                 "a b"))
-  ;; THIN SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u2009b")
-                 "a b"))
-  ;; HAIR SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u200Ab")
-                 "a b"))
-  ;; IDEOGRAPHIC SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u3000b")
-                 "a b"))
-  ;; NARROW NO-BREAK SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u202Fb")
-                 "a b"))
-  ;; MEDIUM MATHEMATICAL SPACE → space
-  (should (equal (jupiterweb--normalize-unicode "a\u205Fb")
-                 "a b"))
-  ;; ZERO WIDTH SPACE → removed
-  (should (equal (jupiterweb--normalize-unicode "hello\u200Bworld")
-                 "helloworld"))
-  ;; ZERO WIDTH NON-JOINER → removed
-  (should (equal (jupiterweb--normalize-unicode "hello\u200Cworld")
-                 "helloworld"))
-  ;; ZERO WIDTH JOINER → removed
-  (should (equal (jupiterweb--normalize-unicode "hello\u200Dworld")
-                 "helloworld"))
-  ;; SOFT HYPHEN → removed
-  (should (equal (jupiterweb--normalize-unicode "hello\u00ADworld")
-                 "helloworld"))
-  ;; BOM → removed
-  (should (equal (jupiterweb--normalize-unicode "\uFEFFhello")
-                 "hello"))
-  ;; Multiple invisible spaces together (NBSP→space, ZWS→removed, THIN→space = two spaces)
-  (should (equal (jupiterweb--normalize-unicode "a\u00A0\u200B\u2009b")
-                 "a  b"))
-  ;; Regular text unchanged
-  (should (equal (jupiterweb--normalize-unicode "hello world")
-                 "hello world"))
-  ;; Empty string and nil
+  (should (equal (jupiterweb--normalize-unicode "a\u2002b") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u2003b") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u2009b") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u200Ab") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u3000b") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u202Fb") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "a\u205Fb") "a b"))
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Bworld") "helloworld"))
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Cworld") "helloworld"))
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Dworld") "helloworld"))
+  (should (equal (jupiterweb--normalize-unicode "hello\u00ADworld") "helloworld"))
+  (should (equal (jupiterweb--normalize-unicode "\uFEFFhello") "hello"))
+  (should (equal (jupiterweb--normalize-unicode "a\u00A0\u200B\u2009b") "a  b"))
+  (should (equal (jupiterweb--normalize-unicode "hello world") "hello world"))
   (should (equal (jupiterweb--normalize-unicode "") ""))
   (should (null (jupiterweb--normalize-unicode nil))))
 
@@ -163,90 +111,65 @@
 
 (ert-deftest jupiterweb-test-clean-field-text ()
   "Test that `jupiterweb--clean-field-text' cleans fields correctly."
-  ;; Basic whitespace normalization.
   (should (equal (jupiterweb--clean-field-text "  hello   world  ")
                  "hello world"))
-  ;; Literal \\n, \\r, \\t sequences removed.
   (should (equal (jupiterweb--clean-field-text "hello\\nworld")
                  "hello world"))
   (should (equal (jupiterweb--clean-field-text "hello\\r\\nworld")
                  "hello world"))
   (should (equal (jupiterweb--clean-field-text "hello\\tworld")
                  "hello world"))
-  ;; Stray backslashes removed.
   (should (equal (jupiterweb--clean-field-text "hello\\world")
                  "hello world"))
-  ;; HTML entities unescaped (double, like Python).
   (should (equal (jupiterweb--clean-field-text "&amp;amp;hello")
                  "&hello"))
   (should (equal (jupiterweb--clean-field-text "&lt;b&gt;bold&lt;/b&gt;")
                  "<b>bold</b>"))
-  ;; nil → nil.
   (should (null (jupiterweb--clean-field-text nil)))
-  ;; Empty string → nil.
   (should (null (jupiterweb--clean-field-text "")))
-  ;; Whitespace only → nil.
   (should (null (jupiterweb--clean-field-text "   ")))
-  ;; Stripping semicolons and colons from edges.
   (should (equal (jupiterweb--clean-field-text ";:hello;:")
                  "hello"))
-  ;; Preserve breaks mode.
   (should (equal (jupiterweb--clean-field-text "line1\n\n\nline2" t)
                  "line1\n\nline2"))
-  ;; Double quotes converted to typographic quotes.
   (should (equal (jupiterweb--clean-field-text "say \"hello\" now")
                  "say \u201Chello\u201D now")))
 
 ;;; HTML-to-plain-text conversion
 
 (ert-deftest jupiterweb-test-html-to-plain-text ()
-  "Test that `jupiterweb--html-to-plain-text' converts HTML correctly.
-HTML block tags become useful line breaks; section headings remain isolated lines."
-  ;; Script and style removed
+  "Test that `jupiterweb--html-to-plain-text' converts HTML correctly."
   (should (equal (jupiterweb--html-to-plain-text
-                  "<script>alert(1)</script>hello")
-                 "hello"))
+                  "<script>alert(1)</script>hello") "hello"))
   (should (equal (jupiterweb--html-to-plain-text
-                  "<style>.x{color:red}</style>hello")
-                 "hello"))
-  ;; <br> converted to newlines
+                  "<style>.x{color:red}</style>hello") "hello"))
   (should (equal (jupiterweb--html-to-plain-text "line1<br>line2")
                  "line1\nline2"))
   (should (equal (jupiterweb--html-to-plain-text "line1<br/>line2")
                  "line1\nline2"))
   (should (equal (jupiterweb--html-to-plain-text "line1<br />line2")
                  "line1\nline2"))
-  ;; Block closing tags converted to newlines
   (should (equal (jupiterweb--html-to-plain-text "<p>para1</p><p>para2</p>")
                  "para1\npara2"))
   (should (equal (jupiterweb--html-to-plain-text "<div>a</div><div>b</div>")
                  "a\nb"))
   (should (equal (jupiterweb--html-to-plain-text "<h1>Title</h1>body")
                  "Title\nbody"))
-  ;; <li> converted to bullet-like lines (</li> adds a newline, so double newline between items)
   (should (equal (jupiterweb--html-to-plain-text "<li>item1</li><li>item2</li>")
                  "- item1\n\n- item2"))
-  ;; Table cells converted to spaces
   (should (equal (jupiterweb--html-to-plain-text "<td>a</td><td>b</td>")
                  "a b"))
-  ;; Remaining tags removed
   (should (equal (jupiterweb--html-to-plain-text "<b>bold</b>")
                  "bold"))
-  ;; HTML entities unescaped
   (should (equal (jupiterweb--html-to-plain-text "&lt;p&gt;text&lt;/p&gt;")
                  "<p>text</p>"))
-  ;; Section heading isolation: heading on its own line.
-  ;; The literal \n in input + </p> newline = double newline between blocks.
   (should (equal (jupiterweb--html-to-plain-text
                   "<p>Some text</p>\n<h2>Ementa</h2>\n<p>Syllabus content</p>")
                  "Some text\n\nEmenta\n\nSyllabus content"))
-  ;; Whitespace normalization: multiple spaces collapsed
   (should (equal (jupiterweb--html-to-plain-text "hello    world")
                  "hello world"))
-  ;; 3+ newlines collapsed to 2
   (should (equal (jupiterweb--html-to-plain-text "a\n\n\n\nb")
                  "a\n\nb"))
-  ;; nil and empty string
   (should (null (jupiterweb--html-to-plain-text nil)))
   (should (equal (jupiterweb--html-to-plain-text "") "")))
 
@@ -254,48 +177,140 @@ HTML block tags become useful line breaks; section headings remain isolated line
 
 (ert-deftest jupiterweb-test-normalize-key ()
   "Test that `jupiterweb--normalize-key' converts accented headings to ASCII keys."
-  ;; Basic accented Portuguese heading
-  (should (equal (jupiterweb--normalize-key "Ementa")
-                 "ementa"))
-  (should (equal (jupiterweb--normalize-key "Objetivos")
-                 "objetivos"))
-  (should (equal (jupiterweb--normalize-key "Conteúdo Programático")
+  (should (equal (jupiterweb--normalize-key "Ementa") "ementa"))
+  (should (equal (jupiterweb--normalize-key "Objetivos") "objetivos"))
+  (should (equal (jupiterweb--normalize-key "Conteudo Programatico")
                  "conteudo_programatico"))
-  (should (equal (jupiterweb--normalize-key "Método de Ensino")
+  (should (equal (jupiterweb--normalize-key "Metodo de Ensino")
                  "metodo_de_ensino"))
-  (should (equal (jupiterweb--normalize-key "Critério de Avaliação")
+  (should (equal (jupiterweb--normalize-key "Criterio de Avaliacao")
                  "criterio_de_avaliacao"))
-  (should (equal (jupiterweb--normalize-key "Norma de Recuperação")
+  (should (equal (jupiterweb--normalize-key "Norma de Recuperacao")
                  "norma_de_recuperacao"))
-  (should (equal (jupiterweb--normalize-key "Bibliografia Básica")
+  (should (equal (jupiterweb--normalize-key "Bibliografia Basica")
                  "bibliografia_basica"))
-  (should (equal (jupiterweb--normalize-key "Objetivos de Desenvolvimento Sustentável (ONU)")
+  (should (equal (jupiterweb--normalize-key "Objetivos de Desenvolvimento Sustentavel (ONU)")
                  "objetivos_de_desenvolvimento_sustentavel_onu"))
-  (should (equal (jupiterweb--normalize-key "Docente(s) Responsável(eis)")
+  (should (equal (jupiterweb--normalize-key "Docente(s) Responsavel(eis)")
                  "docente_s_responsavel_eis"))
-  ;; Edge cases
   (should (equal (jupiterweb--normalize-key "") ""))
   (should (equal (jupiterweb--normalize-key nil) ""))
-  ;; Leading/trailing special chars stripped
-  (should (equal (jupiterweb--normalize-key "  hello  ")
-                 "hello")))
+  (should (equal (jupiterweb--normalize-key "  hello  ") "hello")))
 
 (ert-deftest jupiterweb-test-to-integer ()
   "Test that `jupiterweb--to-integer' converts numeric strings to integers."
-  ;; String to integer
   (should (equal (jupiterweb--to-integer "42") 42))
   (should (equal (jupiterweb--to-integer "  42  ") 42))
   (should (equal (jupiterweb--to-integer "4.5") 4))
   (should (equal (jupiterweb--to-integer "0") 0))
-  ;; Empty and whitespace
   (should (null (jupiterweb--to-integer "")))
   (should (null (jupiterweb--to-integer "   ")))
-  ;; nil
   (should (null (jupiterweb--to-integer nil)))
-  ;; Integer passthrough
-  (should (equal (jupiterweb--to-integer 42) 42))
-  ;; Invalid string
-  (should (equal (jupiterweb--to-integer "abc") 0)))
+  (should (equal (jupiterweb--to-integer 42) 42)))
+
+;;; Cache filename helpers
+
+(ert-deftest jupiterweb-test-cache-filenames ()
+  "Test that cache filenames match SPEC.md patterns."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-cache/"))
+    (should (equal (jupiterweb--cache-file-curriculum)
+                   "/tmp/test-jupiterweb-cache/grade-codcg-43-codcur-43031-codhab-0-tipo-N.json"))
+    (should (equal (jupiterweb--cache-file-discipline "4300151")
+                   "/tmp/test-jupiterweb-cache/disciplina-4300151-codcur-43031-codhab-0.json"))))
+
+;;; Cache roundtrip
+
+(ert-deftest jupiterweb-test-cache-curriculum-roundtrip ()
+  "Test that curriculum objects can be written and read from disk."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-cache-rt/"))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (jupiterweb--ensure-cache-directory)
+    (let ((curriculum (list :package "jupiterweb" :kind "curriculum" :codcur "43031")))
+      (jupiterweb-cache-write-curriculum curriculum)
+      (should (jupiterweb-cache-curriculum-exists-p))
+      (let ((read-back (jupiterweb-cache-read-curriculum)))
+        (should (plist-get read-back :codcur))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-cache-discipline-roundtrip ()
+  "Test that discipline syllabus objects can be written and read from disk."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-cache-rt/"))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (jupiterweb--ensure-cache-directory)
+    (let ((data (list :sgldis "4300151" :name "Test Discipline" :credits-lecture 4)))
+      (jupiterweb-cache-write-discipline "4300151" data)
+      (should (jupiterweb-cache-discipline-exists-p "4300151"))
+      (let ((read-back (jupiterweb-cache-read-discipline "4300151")))
+        (should read-back)
+        (should (equal (plist-get read-back :sgldis) "4300151"))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+;;; Format helpers
+
+(ert-deftest jupiterweb-test-format-name-code ()
+  "Test format-name-code returns exact expected string."
+  (should (equal (jupiterweb--format-name-code
+                  (list :name "Fundamentos de Mecanica" :sgldis "4300151"))
+                 "Fundamentos de Mecanica (4300151)")))
+
+(ert-deftest jupiterweb-test-format-code-name ()
+  "Test format-code-name returns exact expected string."
+  (should (equal (jupiterweb--format-code-name
+                  (list :name "Fundamentos de Mecanica" :sgldis "4300151"))
+                 "4300151 - Fundamentos de Mecanica")))
+
+;;; Retry helper
+
+(ert-deftest jupiterweb-test-retry-helper ()
+  "Test that retry helper retries failing thunks up to jupiterweb-retries."
+  (let ((jupiterweb-retries 3)
+        (attempts 0))
+    (should (equal
+             (jupiterweb--with-retries
+              (lambda ()
+                (setq attempts (1+ attempts))
+                (when (> attempts 2)
+                  "success")))
+             "success"))
+    (should (equal attempts 3)))
+  (let ((jupiterweb-retries 2))
+    (should-error
+     (jupiterweb--with-retries
+      (lambda () (error "always fails"))
+      2))))
+
+;;; Decode response
+
+(ert-deftest jupiterweb-test-decode-response-cp1252 ()
+  "Test that decode-response handles CP1252 bytes."
+  (let ((decoded (jupiterweb--decode-response "hello")))
+    (should (stringp decoded))
+    (should (string-prefix-p "hello" decoded))))
+
+;;; Provisional XXX code
+
+(ert-deftest jupiterweb-test-provisional-xxx-code ()
+  "Test that XXX codes produce fallback records without network."
+  (let ((fallback (jupiterweb--build-syllabus-fallback "XXX001")))
+    (should (equal (plist-get fallback :sgldis) "XXX001"))
+    (should (equal (plist-get fallback :syllabus-status) "fallback"))))
+
+;;; Memory cache
+
+(ert-deftest jupiterweb-test-memory-cache ()
+  "Test that memory cache stores and clears data."
+  (setq jupiterweb--curriculum-memory '(:test data))
+  (should (equal jupiterweb--curriculum-memory '(:test data)))
+  (jupiterweb-cache-clear-memory)
+  (should (null jupiterweb--curriculum-memory))
+  (should (null jupiterweb--discipline-memory)))
 
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here

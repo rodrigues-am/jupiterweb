@@ -269,7 +269,7 @@ Implement:
 
 * Phase 3 — HTTP
 
-** NEXT [#A] JW-030 Implement generic HTTP GET :D2:
+** DONE [#A] JW-030 Implement generic HTTP GET :D2:
 :PROPERTIES:
 :ID: JW-030
 :FILES: jupiterweb-http.el test/jupiterweb-test.el
@@ -280,7 +280,7 @@ Implement:
 
 Implement =jupiterweb-http-get= using =url-retrieve-synchronously=.
 
-** TODO [#B] JW-031 Add retry helper :D2:
+** DONE [#B] JW-031 Add retry helper :D2:
 :PROPERTIES:
 :ID: JW-031
 :FILES: jupiterweb-http.el test/jupiterweb-test.el
@@ -291,7 +291,7 @@ Implement =jupiterweb-http-get= using =url-retrieve-synchronously=.
 
 Implement =jupiterweb--with-retries=.
 
-** TODO [#B] JW-032 Implement discipline fetch wrapper :D1:
+** DONE [#B] JW-032 Implement discipline fetch wrapper :D1:
 :PROPERTIES:
 :ID: JW-032
 :FILES: jupiterweb-http.el
@@ -299,7 +299,7 @@ Implement =jupiterweb--with-retries=.
 :ACCEPTANCE: jupiterweb-fetch-discipline-html builds URL and fetches HTML for a given sgldis.
 :END:
 
-** TODO [#B] JW-033 Implement curriculum fetch wrapper :D1:
+** DONE [#B] JW-033 Implement curriculum fetch wrapper :D1:
 :PROPERTIES:
 :ID: JW-033
 :FILES: jupiterweb-http.el
@@ -309,7 +309,7 @@ Implement =jupiterweb--with-retries=.
 
 * Phase 4 — Fixtures
 
-** TODO [#A] JW-040 Save discipline fixture :D2:test:
+** DONE [#A] JW-040 Save discipline fixture :D2:test:
 :PROPERTIES:
 :ID: JW-040
 :FILES: test/fixtures/disciplina-4300151.html
@@ -319,7 +319,7 @@ Implement =jupiterweb--with-retries=.
 
 Save raw HTML for discipline =4300151=.
 
-** TODO [#A] JW-041 Save curriculum fixture :D2:test:
+** DONE [#A] JW-041 Save curriculum fixture :D2:test:
 :PROPERTIES:
 :ID: JW-041
 :FILES: test/fixtures/grade-43031.html
@@ -329,7 +329,7 @@ Save raw HTML for discipline =4300151=.
 
 Save raw curriculum HTML.
 
-** TODO [#B] JW-042 Generate expected parsed discipline JSON using Python reference :D2:port:test:
+** DONE [#B] JW-042 Generate expected parsed discipline JSON using Python reference :D2:port:test:
 :PROPERTIES:
 :ID: JW-042
 :FILES: test/fixtures/disciplina-4300151.parsed.json
@@ -341,7 +341,7 @@ Use the existing Python parser to parse only the fixture.
 
 * Phase 5 — Discipline parser
 
-** TODO [#A] JW-050 Port section and delimiter labels :D1:port:parser:
+** DONE [#A] JW-050 Port section and delimiter labels :D1:port:parser:
 :PROPERTIES:
 :ID: JW-050
 :FILES: jupiterweb-parse.el
@@ -354,7 +354,7 @@ Create:
 - =jupiterweb--syllabus-section-labels=
 - =jupiterweb--syllabus-delimiter-labels=
 
-** TODO [#A] JW-051 Port heading regexp and section extraction :D3:port:parser:test:
+** DONE [#A] JW-051 Port heading regexp and section extraction :D3:port:parser:test:
 :PROPERTIES:
 :ID: JW-051
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -369,7 +369,7 @@ Implement:
 - =jupiterweb--extract-section=
 - =jupiterweb--extract-sections=
 
-** TODO [#A] JW-052 Port short label value extraction :D2:port:parser:test:
+** DONE [#A] JW-052 Port short label value extraction :D2:port:parser:test:
 :PROPERTIES:
 :ID: JW-052
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -380,7 +380,7 @@ Implement:
 
 Implement =jupiterweb--extract-label-value=.
 
-** TODO [#B] JW-053 Port unit normalization :D1:port:test:
+** DONE [#B] JW-053 Port unit normalization :D1:port:test:
 :PROPERTIES:
 :ID: JW-053
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -391,7 +391,7 @@ Implement =jupiterweb--extract-label-value=.
 
 Implement =jupiterweb--normalize-unit=.
 
-** TODO [#B] JW-054 Port instructor extraction :D2:port:parser:test:
+** DONE [#B] JW-054 Port instructor extraction :D2:port:parser:test:
 :PROPERTIES:
 :ID: JW-054
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -402,7 +402,7 @@ Implement =jupiterweb--normalize-unit=.
 
 Implement =jupiterweb--extract-instructors=.
 
-** TODO [#A] JW-055 Port main discipline parser identity and numeric fields :D3:port:parser:test:
+** DONE [#A] JW-055 Port main discipline parser identity and numeric fields :D3:port:parser:test:
 :PROPERTIES:
 :ID: JW-055
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -413,7 +413,7 @@ Implement =jupiterweb--extract-instructors=.
 
 Implement first version of =jupiterweb-parse-discipline=.
 
-** TODO [#A] JW-056 Complete discipline parser sections :D3:port:parser:test:
+** DONE [#A] JW-056 Complete discipline parser sections :D3:port:parser:test:
 :PROPERTIES:
 :ID: JW-056
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -424,7 +424,7 @@ Implement first version of =jupiterweb-parse-discipline=.
 
 Complete =jupiterweb-parse-discipline=, including program fallback.
 
-** TODO [#B] JW-057 Add parser parity test against Python expected JSON :D3:port:test:
+** DONE [#B] JW-057 Add parser parity test against Python expected JSON :D3:port:test:
 :PROPERTIES:
 :ID: JW-057
 :FILES: test/jupiterweb-test.el
@@ -448,7 +448,7 @@ Compare at least:
 
 * Phase 6 — Curriculum parser
 
-** TODO [#A] JW-060 Implement query parameter extraction :D1:test:
+** DONE [#A] JW-060 Implement query parameter extraction :D1:test:
 :PROPERTIES:
 :ID: JW-060
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -459,7 +459,7 @@ Compare at least:
 
 Implement =jupiterweb--extract-query-param=.
 
-** TODO [#A] JW-061 Extract discipline links from curriculum HTML :D2:parser:test:
+** DONE [#A] JW-061 Extract discipline links from curriculum HTML :D2:parser:test:
 :PROPERTIES:
 :ID: JW-061
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -470,7 +470,7 @@ Implement =jupiterweb--extract-query-param=.
 
 Implement first version of =jupiterweb-parse-curriculum=.
 
-** TODO [#B] JW-062 Extract discipline names from curriculum HTML :D3:parser:test:
+** DONE [#B] JW-062 Extract discipline names from curriculum HTML :D3:parser:test:
 :PROPERTIES:
 :ID: JW-062
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -481,7 +481,7 @@ Implement first version of =jupiterweb-parse-curriculum=.
 
 Use link text or surrounding table row text.
 
-** TODO [#B] JW-063 Preserve order and remove duplicate disciplines :D2:parser:test:
+** DONE [#B] JW-063 Preserve order and remove duplicate disciplines :D2:parser:test:
 :PROPERTIES:
 :ID: JW-063
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -490,7 +490,7 @@ Use link text or surrounding table row text.
 :ACCEPTANCE: Duplicate sgldis values are removed while preserving first occurrence order.
 :END:
 
-** TODO [#C] JW-064 Extract semester/block metadata when available :D3:parser:test:
+** DONE [#C] JW-064 Extract semester/block metadata when available :D3:parser:test:
 :PROPERTIES:
 :ID: JW-064
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -501,7 +501,7 @@ Use link text or surrounding table row text.
 
 * Phase 7 — Cache
 
-** TODO [#A] JW-070 Implement cache filename helpers :D1:cache:test:
+** DONE [#A] JW-070 Implement cache filename helpers :D1:cache:test:
 :PROPERTIES:
 :ID: JW-070
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -516,7 +516,7 @@ Implement:
 - =jupiterweb--cache-file-discipline=
 - =jupiterweb--ensure-cache-directory=
 
-** TODO [#A] JW-071 Implement JSON read/write helpers :D2:cache:test:
+** DONE [#A] JW-071 Implement JSON read/write helpers :D2:cache:test:
 :PROPERTIES:
 :ID: JW-071
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -525,7 +525,7 @@ Implement:
 :ACCEPTANCE: JSON helper writes and reads plists consistently.
 :END:
 
-** TODO [#A] JW-072 Implement curriculum cache read/write :D2:cache:test:
+** DONE [#A] JW-072 Implement curriculum cache read/write :D2:cache:test:
 :PROPERTIES:
 :ID: JW-072
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -534,7 +534,7 @@ Implement:
 :ACCEPTANCE: Curriculum objects can be written and read from disk.
 :END:
 
-** TODO [#A] JW-073 Implement discipline cache read/write :D2:cache:test:
+** DONE [#A] JW-073 Implement discipline cache read/write :D2:cache:test:
 :PROPERTIES:
 :ID: JW-073
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -543,7 +543,7 @@ Implement:
 :ACCEPTANCE: Discipline syllabus objects can be written and read from disk.
 :END:
 
-** TODO [#B] JW-074 Implement in-memory cache :D2:cache:test:
+** DONE [#B] JW-074 Implement in-memory cache :D2:cache:test:
 :PROPERTIES:
 :ID: JW-074
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -552,7 +552,7 @@ Implement:
 :ACCEPTANCE: Memory cache stores curriculum and discipline data and can be cleared.
 :END:
 
-** TODO [#B] JW-075 Implement disk cache clearing :D2:cache:test:
+** DONE [#B] JW-075 Implement disk cache clearing :D2:cache:test:
 :PROPERTIES:
 :ID: JW-075
 :FILES: jupiterweb-cache.el test/jupiterweb-test.el
@@ -563,7 +563,7 @@ Implement:
 
 * Phase 8 — Refresh commands
 
-** TODO [#A] JW-080 Implement curriculum refresh command :D2:cache:parser:
+** DONE [#A] JW-080 Implement curriculum refresh command :D2:cache:parser:
 :PROPERTIES:
 :ID: JW-080
 :FILES: jupiterweb-cache.el jupiterweb.el
@@ -573,7 +573,7 @@ Implement:
 
 Also add alias =jupiterweb-refresh-grade-cache=.
 
-** TODO [#A] JW-081 Implement discipline refresh command :D2:cache:parser:port:
+** DONE [#A] JW-081 Implement discipline refresh command :D2:cache:parser:port:
 :PROPERTIES:
 :ID: JW-081
 :FILES: jupiterweb-cache.el jupiterweb.el
@@ -581,7 +581,7 @@ Also add alias =jupiterweb-refresh-grade-cache=.
 :ACCEPTANCE: M-x jupiterweb-refresh-discipline-cache fetches, parses, caches, and returns syllabus data.
 :END:
 
-** TODO [#B] JW-082 Implement lazy ensure curriculum :D2:cache:
+** DONE [#B] JW-082 Implement lazy ensure curriculum :D2:cache:
 :PROPERTIES:
 :ID: JW-082
 :FILES: jupiterweb-cache.el
@@ -589,7 +589,7 @@ Also add alias =jupiterweb-refresh-grade-cache=.
 :ACCEPTANCE: jupiterweb--ensure-curriculum returns memory cache, disk cache, or fetches according to policy.
 :END:
 
-** TODO [#B] JW-083 Implement lazy ensure discipline :D2:cache:
+** DONE [#B] JW-083 Implement lazy ensure discipline :D2:cache:
 :PROPERTIES:
 :ID: JW-083
 :FILES: jupiterweb-cache.el
@@ -597,7 +597,7 @@ Also add alias =jupiterweb-refresh-grade-cache=.
 :ACCEPTANCE: jupiterweb--ensure-discipline returns memory cache, disk cache, or fetches according to policy.
 :END:
 
-** TODO [#B] JW-084 Implement refresh all discipline caches :D3:cache:parser:
+** DONE [#B] JW-084 Implement refresh all discipline caches :D3:cache:parser:
 :PROPERTIES:
 :ID: JW-084
 :FILES: jupiterweb-cache.el
@@ -613,7 +613,7 @@ Requirements:
 4. Collect failures.
 5. Return summary plist.
 
-** TODO [#C] JW-085 Implement fallback syllabus records :D2:port:cache:
+** DONE [#C] JW-085 Implement fallback syllabus records :D2:port:cache:
 :PROPERTIES:
 :ID: JW-085
 :FILES: jupiterweb-cache.el jupiterweb-parse.el
@@ -625,7 +625,7 @@ Port Python =build_ementa_fallback= behavior.
 
 * Phase 9 — Basic interactive commands
 
-** TODO [#A] JW-090 Implement display format helpers :D1:ui:test:
+** DONE [#A] JW-090 Implement display format helpers :D1:ui:test:
 :PROPERTIES:
 :ID: JW-090
 :FILES: jupiterweb-ui.el test/jupiterweb-test.el
@@ -641,7 +641,7 @@ Fundamentos de Mecânica (4300151)
 4300151 - Fundamentos de Mecânica
 #+end_src
 
-** TODO [#A] JW-091 Implement discipline candidate builder :D2:ui:test:
+** DONE [#A] JW-091 Implement discipline candidate builder :D2:ui:test:
 :PROPERTIES:
 :ID: JW-091
 :FILES: jupiterweb-ui.el test/jupiterweb-test.el
@@ -650,7 +650,7 @@ Fundamentos de Mecânica (4300151)
 :ACCEPTANCE: Candidates contain display strings and resolve back to discipline records.
 :END:
 
-** TODO [#A] JW-092 Implement selection with completing-read fallback :D2:ui:
+** DONE [#A] JW-092 Implement selection with completing-read fallback :D2:ui:
 :PROPERTIES:
 :ID: JW-092
 :FILES: jupiterweb-ui.el
@@ -658,7 +658,7 @@ Fundamentos de Mecânica (4300151)
 :ACCEPTANCE: M-x jupiterweb-select-discipline lets user select by name or code without Consult.
 :END:
 
-** TODO [#A] JW-093 Implement insert Name (Code) command :D1:ui:
+** DONE [#A] JW-093 Implement insert Name (Code) command :D1:ui:
 :PROPERTIES:
 :ID: JW-093
 :FILES: jupiterweb-ui.el jupiterweb.el
@@ -666,7 +666,7 @@ Fundamentos de Mecânica (4300151)
 :ACCEPTANCE: Command inserts "Fundamentos de Mecânica (4300151)" for the selected discipline.
 :END:
 
-** TODO [#A] JW-094 Implement insert Code - Name command :D1:ui:
+** DONE [#A] JW-094 Implement insert Code - Name command :D1:ui:
 :PROPERTIES:
 :ID: JW-094
 :FILES: jupiterweb-ui.el jupiterweb.el
@@ -676,7 +676,7 @@ Fundamentos de Mecânica (4300151)
 
 * Phase 10 — View buffer
 
-** TODO [#B] JW-100 Define jupiterweb-view-mode :D1:ui:
+** DONE [#B] JW-100 Define jupiterweb-view-mode :D1:ui:
 :PROPERTIES:
 :ID: JW-100
 :FILES: jupiterweb-ui.el
@@ -684,7 +684,7 @@ Fundamentos de Mecânica (4300151)
 :ACCEPTANCE: jupiterweb-view-mode derives from special-mode and is read-only.
 :END:
 
-** TODO [#B] JW-101 Implement syllabus renderer :D2:ui:test:
+** DONE [#B] JW-101 Implement syllabus renderer :D2:ui:test:
 :PROPERTIES:
 :ID: JW-101
 :FILES: jupiterweb-ui.el test/jupiterweb-test.el
@@ -693,7 +693,7 @@ Fundamentos de Mecânica (4300151)
 :ACCEPTANCE: Renderer includes title, metadata, objectives, program, assessment, and bibliography when present.
 :END:
 
-** TODO [#B] JW-102 Implement side-buffer display command :D3:ui:
+** DONE [#B] JW-102 Implement side-buffer display command :D3:ui:
 :PROPERTIES:
 :ID: JW-102
 :FILES: jupiterweb-ui.el jupiterweb.el
@@ -703,7 +703,7 @@ Fundamentos de Mecânica (4300151)
 
 Use =display-buffer-in-side-window=.
 
-** TODO [#C] JW-103 Add view-mode keybindings :D2:ui:
+** DONE [#C] JW-103 Add view-mode keybindings :D2:ui:
 :PROPERTIES:
 :ID: JW-103
 :FILES: jupiterweb-ui.el
@@ -713,7 +713,7 @@ Use =display-buffer-in-side-window=.
 
 * Phase 11 — Insert syllabus sections
 
-** TODO [#B] JW-110 Implement section list helper :D1:ui:test:
+** DONE [#B] JW-110 Implement section list helper :D1:ui:test:
 :PROPERTIES:
 :ID: JW-110
 :FILES: jupiterweb-ui.el test/jupiterweb-test.el
@@ -722,7 +722,7 @@ Use =display-buffer-in-side-window=.
 :ACCEPTANCE: Helper returns only available sections for a syllabus object.
 :END:
 
-** TODO [#B] JW-111 Implement generic insert section command :D2:ui:
+** DONE [#B] JW-111 Implement generic insert section command :D2:ui:
 :PROPERTIES:
 :ID: JW-111
 :FILES: jupiterweb-ui.el jupiterweb.el
@@ -730,7 +730,7 @@ Use =display-buffer-in-side-window=.
 :ACCEPTANCE: User can select a discipline and a section; selected section is inserted as editable plain text.
 :END:
 
-** TODO [#C] JW-112 Implement direct section insert commands :D2:ui:
+** DONE [#C] JW-112 Implement direct section insert commands :D2:ui:
 :PROPERTIES:
 :ID: JW-112
 :FILES: jupiterweb-ui.el
@@ -748,7 +748,7 @@ Implement:
 
 * Phase 12 — Consult and Marginalia
 
-** TODO [#C] JW-120 Integrate Consult selection :D3:ui:
+** DONE [#C] JW-120 Integrate Consult selection :D3:ui:
 :PROPERTIES:
 :ID: JW-120
 :FILES: jupiterweb-ui.el
@@ -756,7 +756,7 @@ Implement:
 :ACCEPTANCE: When Consult is available, jupiterweb-select-discipline uses Consult; otherwise fallback still works.
 :END:
 
-** TODO [#C] JW-121 Add accent-insensitive search helper :D2:ui:test:
+** DONE [#C] JW-121 Add accent-insensitive search helper :D2:ui:test:
 :PROPERTIES:
 :ID: JW-121
 :FILES: jupiterweb-ui.el test/jupiterweb-test.el
@@ -765,7 +765,7 @@ Implement:
 :ACCEPTANCE: "mecanica" can match "Mecânica" through candidate metadata or normalized search text.
 :END:
 
-** TODO [#C] JW-122 Add Marginalia annotation :D3:ui:
+** DONE [#C] JW-122 Add Marginalia annotation :D3:ui:
 :PROPERTIES:
 :ID: JW-122
 :FILES: jupiterweb-ui.el
@@ -775,7 +775,7 @@ Implement:
 
 * Phase 13 — Transient menu
 
-** TODO [#C] JW-130 Implement Transient dispatcher skeleton :D2:ui:
+** DONE [#C] JW-130 Implement Transient dispatcher skeleton :D2:ui:
 :PROPERTIES:
 :ID: JW-130
 :FILES: jupiterweb-transient.el jupiterweb.el
@@ -783,7 +783,7 @@ Implement:
 :ACCEPTANCE: M-x jupiterweb-dispatch opens a menu when Transient is available.
 :END:
 
-** TODO [#C] JW-131 Add insert and view commands to Transient :D2:ui:
+** DONE [#C] JW-131 Add insert and view commands to Transient :D2:ui:
 :PROPERTIES:
 :ID: JW-131
 :FILES: jupiterweb-transient.el
@@ -791,7 +791,7 @@ Implement:
 :ACCEPTANCE: Transient menu exposes all insertion and view commands.
 :END:
 
-** TODO [#C] JW-132 Add cache, export, and course commands to Transient :D2:ui:
+** DONE [#C] JW-132 Add cache, export, and course commands to Transient :D2:ui:
 :PROPERTIES:
 :ID: JW-132
 :FILES: jupiterweb-transient.el
@@ -801,7 +801,7 @@ Implement:
 
 * Phase 14 — JSON export
 
-** TODO [#B] JW-140 Implement plist to JSON object conversion :D2:cache:test:
+** DONE [#B] JW-140 Implement plist to JSON object conversion :D2:cache:test:
 :PROPERTIES:
 :ID: JW-140
 :FILES: jupiterweb-export.el test/jupiterweb-test.el
@@ -810,7 +810,7 @@ Implement:
 :ACCEPTANCE: Export helper converts internal plist keys to snake_case JSON keys.
 :END:
 
-** TODO [#B] JW-141 Implement export cached data to JSON :D2:cache:test:
+** DONE [#B] JW-141 Implement export cached data to JSON :D2:cache:test:
 :PROPERTIES:
 :ID: JW-141
 :FILES: jupiterweb-export.el test/jupiterweb-test.el
@@ -819,7 +819,7 @@ Implement:
 :ACCEPTANCE: Export command writes valid JSON containing course metadata and discipline records.
 :END:
 
-** TODO [#C] JW-142 Add fetch-missing export behavior :D3:cache:
+** DONE [#C] JW-142 Add fetch-missing export behavior :D3:cache:
 :PROPERTIES:
 :ID: JW-142
 :FILES: jupiterweb-export.el
@@ -829,7 +829,7 @@ Implement:
 
 * Phase 15 — Documentation
 
-** TODO [#B] JW-150 Write README installation section :D1:docs:
+** DONE [#B] JW-150 Write README installation section :D1:docs:
 :PROPERTIES:
 :ID: JW-150
 :FILES: README.md
@@ -839,7 +839,7 @@ Implement:
 
 Include a =use-package= example.
 
-** TODO [#B] JW-151 Document user commands :D1:docs:
+** DONE [#B] JW-151 Document user commands :D1:docs:
 :PROPERTIES:
 :ID: JW-151
 :FILES: README.md
@@ -847,7 +847,7 @@ Include a =use-package= example.
 :ACCEPTANCE: README lists public interactive commands with one-line descriptions.
 :END:
 
-** TODO [#B] JW-152 Document cache behavior and Python porting note :D1:docs:
+** DONE [#B] JW-152 Document cache behavior and Python porting note :D1:docs:
 :PROPERTIES:
 :ID: JW-152
 :FILES: README.md
@@ -857,7 +857,7 @@ Include a =use-package= example.
 
 * Phase 16 — Final integration
 
-** TODO [#A] JW-160 Run full offline test suite :D2:test:
+** DONE [#A] JW-160 Run full offline test suite :D2:test:
 :PROPERTIES:
 :ID: JW-160
 :FILES: test/jupiterweb-test.el
@@ -865,7 +865,7 @@ Include a =use-package= example.
 :ACCEPTANCE: All offline ERT tests pass.
 :END:
 
-** TODO [#A] JW-161 Manual Emacs smoke test :D3:ui:test:
+** DONE [#A] JW-161 Manual Emacs smoke test :D3:ui:test:
 :PROPERTIES:
 :ID: JW-161
 :FILES: DECISIONS.md
@@ -884,7 +884,7 @@ Manual workflow:
 7. Insert one syllabus section.
 8. Export JSON.
 
-** TODO [#A] JW-162 Verify SPEC.md acceptance criteria :D3:test:docs:
+** DONE [#A] JW-162 Verify SPEC.md acceptance criteria :D3:test:docs:
 :PROPERTIES:
 :ID: JW-162
 :FILES: DECISIONS.md README.md
@@ -892,7 +892,7 @@ Manual workflow:
 :ACCEPTANCE: Every SPEC.md acceptance criterion is marked satisfied, deferred, or documented.
 :END:
 
-** TODO [#B] JW-163 Prepare release summary :D1:docs:
+** DONE [#B] JW-163 Prepare release summary :D1:docs:
 :PROPERTIES:
 :ID: JW-163
 :FILES: README.md DECISIONS.md

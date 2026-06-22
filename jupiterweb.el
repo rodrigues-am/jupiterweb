@@ -27,11 +27,6 @@
 ;; jupiterweb is an Emacs Lisp package for querying, caching, viewing,
 ;; inserting, and exporting curriculum and discipline syllabus data from
 ;; USP JupiterWeb.
-;;
-;; The package supports the Physics Teaching Degree curriculum by default
-;; while allowing other USP courses through customizable variables.
-;;
-;; See SPEC.md for the full technical specification.
 
 ;;; Code:
 
@@ -41,8 +36,20 @@
 (require 'jupiterweb-cache)
 (require 'jupiterweb-ui)
 (require 'jupiterweb-export)
+(require 'jupiterweb-transient)
 
-;; Public autoloads will be added as commands are implemented.
+(require 'cl-lib)
+
+;;;###autoload
+(cl-defun jupiterweb-set-course (&key codcg codcur codhab tipo)
+  "Set the current JupiterWeb course parameters and reload matching cache."
+  (interactive)
+  (when codcg (setq jupiterweb-codcg codcg))
+  (when codcur (setq jupiterweb-codcur codcur))
+  (when codhab (setq jupiterweb-codhab codhab))
+  (when tipo (setq jupiterweb-tipo tipo))
+  (jupiterweb-cache-clear-memory)
+  (ignore-errors (jupiterweb-cache-read-curriculum)))
 
 (provide 'jupiterweb)
 ;;; jupiterweb.el ends here

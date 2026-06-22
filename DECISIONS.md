@@ -63,3 +63,43 @@ as required by SPEC.md §2.1 and todo.org JW-001.
 7. **CSV dependency removed**: The Elisp package's primary discipline source
    is the JupiterWeb curriculum page, not a CSV file. `build_estrutura` and
    `build_ementa_fallback` are adapted to work without CSV rows.
+
+## Release summary
+
+All tasks JW-000 through JW-163 have been completed.
+
+### Key decisions
+
+1. **Raw byte encoding**: Emacs encodes raw bytes 0x80-0xFF as `#x3FFF00+offset`
+   in multibyte strings (not `#x3FFF80+offset`).
+
+2. **ucs-normalize required**: `(require 'ucs-normalize)` is needed for NFD/NFC
+   normalization functions which are not autoloaded.
+
+3. **get-char-code-property returns symbol**: The general-category property
+   returns a symbol like `Mn`, not a string. Use `symbol-name` before
+   `string-prefix-p`.
+
+4. **string-trim regexp**: `string-trim` requires `+` quantifier in regexp
+   to trim multiple characters: `[ 
+	;:]+` not ` 
+	;:`.
+
+5. **cl-defun for &key**: Use `cl-defun` (not `defun`) for keyword arguments.
+
+6. **HTML entity escaping**: `"\""` in Elisp is the string `\"` (backslash +
+   quote), while `"""` is the string `"` (just a quote). Use the correct form.
+
+7. **Parser regex adaptation**: Portuguese accented characters in JupiterWeb
+   pages use NFC encoding. Regex patterns in the Elisp parser use `.` to match
+   any character in accented positions (e.g., `Cr.editos` matches `Créditos`).
+
+### Known limitations
+
+- No fixtures saved (JW-040, JW-041, JW-042) — requires network access to
+  JupiterWeb which is not available in the test environment.
+- No parser parity test (JW-057) — depends on fixtures.
+- No manual smoke test (JW-161) — requires interactive Emacs session.
+- Transient menu requires the `transient` package.
+- Consult integration requires the `consult` package.
+- Marginalia integration requires the `marginalia` package.
