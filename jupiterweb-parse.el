@@ -16,6 +16,7 @@
 (require 'seq)
 (require 'cl-lib)
 (require 'dom)
+(require 'ucs-normalize)
 (require 'jupiterweb-vars)
 
 ;; Section and delimiter labels (ported from Python SECOES_EMENTA and TITULOS_SECAO)
@@ -251,20 +252,106 @@ all whitespace to single spaces.  Ported from Python limpar_texto_campo."
       (if (string-empty-p s) nil s))))
 
 (defun jupiterweb--html-to-plain-text (html)
-  "Convert HTML to text while preserving section heading line breaks."
-  (error "jupiterweb--html-to-plain-text not yet implemented"))
+  "Convert HTML to text while preserving section heading line breaks.
+Ported from Python clean_text.  Steps:
+1. Remove <script> and <style> blocks.
+2. Convert <br> to newlines.
+3. Convert block closing tags to newlines.
+4. Convert <li> to bullet-like lines.
+5. Convert table cells to spaces.
+6. Remove remaining tags.
+7. HTML-unescape twice.
+8. Normalize Unicode.
+9. Normalize whitespace without destroying section headings."
+  (if (or (null html) (string-empty-p html))
+      html
+    (let ((text html))
+      ;; 1. Remove <script>...</script> and <style>...</style>
+      (setq text (replace-regexp-in-string
+                  "<script\\b[^>]*>.*?</script>" " " text t t))
+      (setq text (replace-regexp-in-string
+                  "<style\\b[^>]*>.*?</style>" " " text t t))
+      ;; 2. Convert <br> to newlines
+      (setq text (replace-regexp-in-string "<br\\s-*/?>" "\n" text t t))
+      ;; 3. Convert block closing tags to newlines
+      (setq text (replace-regexp-in-string
+                  "</\\(?:p\\|div\\|tr\\|table\\|h[1-6]\\)\\s-*>" "\n" text t t))
+      ;; 4. Convert <li> to bullet-like lines
+      (setq text (replace-regexp-in-string "<li\\b[^>]*>" "\n- " text t t))
+      (setq text (replace-regexp-in-string "</li\\s-*>" "\n" text t t))
+      ;; 5. Convert table cells to spaces
+      (setq text (replace-regexp-in-string "</\\(?:td\\|th\\)\\s-*>" " " text t t))
+      ;; 6. Remove remaining tags
+      (setq text (replace-regexp-in-string "<[^>]+>" " " text t t))
+      ;; 7. HTML-unescape twice
+      (setq text (jupiterweb--html-unescape text))
+      ;; 8. Normalize Unicode
+      (setq text (jupiterweb--normalize-unicode text))
+      ;; 9. Normalize whitespace without destroying headings
+      (setq text (replace-regexp-in-string "\r\n" "\n" text t t))
+      (setq text (replace-regexp-in-string "\r" "\n" text t t))
+      (setq text (replace-regexp-in-string "\t" " " text t t))
+      (setq text (replace-regexp-in-string "[ \f\v]+" " " text t t))
+      (setq text (replace-regexp-in-string " *\n *" "\n" text t t))
+      (setq text (replace-regexp-in-string "\n\\{3,\\}" "\n\n" text t t))
+      (string-trim text))))
 
 (defun jupiterweb--normalize-key (title)
-  "Convert Portuguese headings to ASCII keys."
-  (error "jupiterweb--normalize-key not yet implemented"))
+  "Convert Portuguese headings to stable ASCII keys.
+NFD decompose, strip combining marks, lowercase, replace non-alphanumeric
+runs with underscore, strip leading/trailing underscores.
+Ported from Python normalizar_chave."
+  (if (or (null title) (string-empty-p title))
+      ""
+    (let* ((nfd (condition-case nil
+                    (ucs-normalize-NFD-string title)
+                  (error title)))
+           (chars (string-to-list nfd))
+           (filtered nil))
+      ;; Strip combining marks (category Mn)
+      (dolist (ch chars)
+        (let ((cat (condition-case nil
+                       (get-char-code-property ch 'general-category)
+                     (error nil))))
+          (unless (and cat (string-prefix-p "Mn" (symbol-name cat)))
+            (push (string ch) filtered))))
+      (let* ((sem-acentos (apply #'concat (nreverse filtered)))
+             (lower (downcase sem-acentos))
+             ;; Replace non-alphanumeric runs with underscore
+             (key (replace-regexp-in-string "[^a-z0-9]+" "_" lower t t)))
+        (string-trim key "_" "_")))))
 
 (defun jupiterweb--to-integer (value)
-  "Convert VALUE to an integer, returning nil if empty or invalid."
-  (error "jupiterweb--to-integer not yet implemented"))
+  "Convert VALUE to an integer, returning nil if empty or invalid.
+Ported from Python to_int."
+  (cond
+   ((null value) nil)
+   ((integerp value) value)
+   ((floatp value) (floor value))
+   ((stringp value)
+    (let ((s (string-trim value)))
+      (if (string-empty-p s)
+          nil
+        (condition-case nil
+            (floor (string-to-number s))
+          (error nil)))))
+   (t
+    (let ((s (string-trim (format "%s" value))))
+      (if (string-empty-p s)
+          nil
+        (condition-case nil
+            (floor (string-to-number s))
+          (error nil)))))))
 
 (defun jupiterweb--extract-number (text regexp)
-  "Search TEXT for REGEXP and return the first capture group as an integer."
-  (error "jupiterweb--extract-number not yet implemented"))
+  "Search TEXT for REGEXP and return the first capture group as an integer.
+Ported from Python extrair_numero.  Case-insensitive search."
+  (when (and text (stringp text))
+    (let ((case-fold-search t))
+      (when (string-match regexp text)
+        (let ((match (match-string 1 text)))
+          (when match
+            (string-to-number match)))))))
 
 (defun jupiterweb--normalize-unit (unit)
   "Normalize USP unit names to abbreviations."

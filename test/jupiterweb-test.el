@@ -197,5 +197,105 @@
   (should (equal (jupiterweb--clean-field-text "say \"hello\" now")
                  "say \u201Chello\u201D now")))
 
+;;; HTML-to-plain-text conversion
+
+(ert-deftest jupiterweb-test-html-to-plain-text ()
+  "Test that `jupiterweb--html-to-plain-text' converts HTML correctly.
+HTML block tags become useful line breaks; section headings remain isolated lines."
+  ;; Script and style removed
+  (should (equal (jupiterweb--html-to-plain-text
+                  "<script>alert(1)</script>hello")
+                 "hello"))
+  (should (equal (jupiterweb--html-to-plain-text
+                  "<style>.x{color:red}</style>hello")
+                 "hello"))
+  ;; <br> converted to newlines
+  (should (equal (jupiterweb--html-to-plain-text "line1<br>line2")
+                 "line1\nline2"))
+  (should (equal (jupiterweb--html-to-plain-text "line1<br/>line2")
+                 "line1\nline2"))
+  (should (equal (jupiterweb--html-to-plain-text "line1<br />line2")
+                 "line1\nline2"))
+  ;; Block closing tags converted to newlines
+  (should (equal (jupiterweb--html-to-plain-text "<p>para1</p><p>para2</p>")
+                 "para1\npara2"))
+  (should (equal (jupiterweb--html-to-plain-text "<div>a</div><div>b</div>")
+                 "a\nb"))
+  (should (equal (jupiterweb--html-to-plain-text "<h1>Title</h1>body")
+                 "Title\nbody"))
+  ;; <li> converted to bullet-like lines (</li> adds a newline, so double newline between items)
+  (should (equal (jupiterweb--html-to-plain-text "<li>item1</li><li>item2</li>")
+                 "- item1\n\n- item2"))
+  ;; Table cells converted to spaces
+  (should (equal (jupiterweb--html-to-plain-text "<td>a</td><td>b</td>")
+                 "a b"))
+  ;; Remaining tags removed
+  (should (equal (jupiterweb--html-to-plain-text "<b>bold</b>")
+                 "bold"))
+  ;; HTML entities unescaped
+  (should (equal (jupiterweb--html-to-plain-text "&lt;p&gt;text&lt;/p&gt;")
+                 "<p>text</p>"))
+  ;; Section heading isolation: heading on its own line.
+  ;; The literal \n in input + </p> newline = double newline between blocks.
+  (should (equal (jupiterweb--html-to-plain-text
+                  "<p>Some text</p>\n<h2>Ementa</h2>\n<p>Syllabus content</p>")
+                 "Some text\n\nEmenta\n\nSyllabus content"))
+  ;; Whitespace normalization: multiple spaces collapsed
+  (should (equal (jupiterweb--html-to-plain-text "hello    world")
+                 "hello world"))
+  ;; 3+ newlines collapsed to 2
+  (should (equal (jupiterweb--html-to-plain-text "a\n\n\n\nb")
+                 "a\n\nb"))
+  ;; nil and empty string
+  (should (null (jupiterweb--html-to-plain-text nil)))
+  (should (equal (jupiterweb--html-to-plain-text "") "")))
+
+;;; Key and integer helpers
+
+(ert-deftest jupiterweb-test-normalize-key ()
+  "Test that `jupiterweb--normalize-key' converts accented headings to ASCII keys."
+  ;; Basic accented Portuguese heading
+  (should (equal (jupiterweb--normalize-key "Ementa")
+                 "ementa"))
+  (should (equal (jupiterweb--normalize-key "Objetivos")
+                 "objetivos"))
+  (should (equal (jupiterweb--normalize-key "Conteúdo Programático")
+                 "conteudo_programatico"))
+  (should (equal (jupiterweb--normalize-key "Método de Ensino")
+                 "metodo_de_ensino"))
+  (should (equal (jupiterweb--normalize-key "Critério de Avaliação")
+                 "criterio_de_avaliacao"))
+  (should (equal (jupiterweb--normalize-key "Norma de Recuperação")
+                 "norma_de_recuperacao"))
+  (should (equal (jupiterweb--normalize-key "Bibliografia Básica")
+                 "bibliografia_basica"))
+  (should (equal (jupiterweb--normalize-key "Objetivos de Desenvolvimento Sustentável (ONU)")
+                 "objetivos_de_desenvolvimento_sustentavel_onu"))
+  (should (equal (jupiterweb--normalize-key "Docente(s) Responsável(eis)")
+                 "docente_s_responsavel_eis"))
+  ;; Edge cases
+  (should (equal (jupiterweb--normalize-key "") ""))
+  (should (equal (jupiterweb--normalize-key nil) ""))
+  ;; Leading/trailing special chars stripped
+  (should (equal (jupiterweb--normalize-key "  hello  ")
+                 "hello")))
+
+(ert-deftest jupiterweb-test-to-integer ()
+  "Test that `jupiterweb--to-integer' converts numeric strings to integers."
+  ;; String to integer
+  (should (equal (jupiterweb--to-integer "42") 42))
+  (should (equal (jupiterweb--to-integer "  42  ") 42))
+  (should (equal (jupiterweb--to-integer "4.5") 4))
+  (should (equal (jupiterweb--to-integer "0") 0))
+  ;; Empty and whitespace
+  (should (null (jupiterweb--to-integer "")))
+  (should (null (jupiterweb--to-integer "   ")))
+  ;; nil
+  (should (null (jupiterweb--to-integer nil)))
+  ;; Integer passthrough
+  (should (equal (jupiterweb--to-integer 42) 42))
+  ;; Invalid string
+  (should (equal (jupiterweb--to-integer "abc") 0)))
+
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here

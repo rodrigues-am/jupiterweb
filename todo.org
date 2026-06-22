@@ -241,7 +241,7 @@ Port Python =ESPACOS_INVISIVEIS=.
 
 Port Python =limpar_texto_campo=.
 
-** NEXT [#B] JW-023 Port HTML-to-plain-text conversion :D2:port:parser:test:
+** DONE [#B] JW-023 Port HTML-to-plain-text conversion :D2:port:parser:test:
 :PROPERTIES:
 :ID: JW-023
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -252,7 +252,7 @@ Port Python =limpar_texto_campo=.
 
 Port Python =clean_text=.
 
-** TODO [#B] JW-024 Port key and integer helpers :D1:port:test:
+** DONE [#B] JW-024 Port key and integer helpers :D1:port:test:
 :PROPERTIES:
 :ID: JW-024
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -269,7 +269,7 @@ Implement:
 
 * Phase 3 — HTTP
 
-** TODO [#A] JW-030 Implement generic HTTP GET :D2:
+** NEXT [#A] JW-030 Implement generic HTTP GET :D2:
 :PROPERTIES:
 :ID: JW-030
 :FILES: jupiterweb-http.el test/jupiterweb-test.el
