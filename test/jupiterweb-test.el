@@ -48,18 +48,23 @@
 
 (ert-deftest jupiterweb-test-set-course-invalidates-memory ()
   "Test that `jupiterweb-set-course' updates variables and clears in-memory cache."
-  (setq jupiterweb--curriculum-memory '(:dummy curriculum)
-        jupiterweb--discipline-memory '(("4300151" . (:dummy discipline))))
-  (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N")
-  (should (equal jupiterweb-codcur "43031"))
-  (should (equal jupiterweb-codhab "0"))
-  (should (null jupiterweb--curriculum-memory))
-  (should (null jupiterweb--discipline-memory))
-  (setq jupiterweb--curriculum-memory '(:dummy))
-  (jupiterweb-set-course :codhab "4")
-  (should (equal jupiterweb-codhab "4"))
-  (should (null jupiterweb--curriculum-memory))
-  (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N"))
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-set-course/"))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (setq jupiterweb--curriculum-memory '(:dummy curriculum)
+          jupiterweb--discipline-memory '(("4300151" . (:dummy discipline))))
+    (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N")
+    (should (equal jupiterweb-codcur "43031"))
+    (should (equal jupiterweb-codhab "0"))
+    (should (null jupiterweb--curriculum-memory))
+    (should (null jupiterweb--discipline-memory))
+    (setq jupiterweb--curriculum-memory '(:dummy))
+    (jupiterweb-set-course :codhab "4")
+    (should (equal jupiterweb-codhab "4"))
+    (should (null jupiterweb--curriculum-memory))
+    (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N")
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
 
 ;;; CP1252 control-character mapping
 
@@ -227,11 +232,17 @@
     (when (file-directory-p jupiterweb-cache-directory)
       (delete-directory jupiterweb-cache-directory t))
     (jupiterweb--ensure-cache-directory)
-    (let ((curriculum (list :package "jupiterweb" :kind "curriculum" :codcur "43031")))
+    (let ((curriculum (list :package "jupiterweb"
+                            :kind "curriculum"
+                            :codcur "43031"
+                            :disciplines (list (list :sgldis "4300151"
+                                                     :name "Test Discipline")))))
       (jupiterweb-cache-write-curriculum curriculum)
       (should (jupiterweb-cache-curriculum-exists-p))
       (let ((read-back (jupiterweb-cache-read-curriculum)))
-        (should (plist-get read-back :codcur))))
+        (should (plist-get read-back :codcur))
+        (should (equal (plist-get (car (plist-get read-back :disciplines)) :sgldis)
+                       "4300151"))))
     (jupiterweb-cache-clear-memory)
     (when (file-directory-p jupiterweb-cache-directory)
       (delete-directory jupiterweb-cache-directory t))))
@@ -311,6 +322,39 @@
   (jupiterweb-cache-clear-memory)
   (should (null jupiterweb--curriculum-memory))
   (should (null jupiterweb--discipline-memory)))
+
+(ert-deftest jupiterweb-test-transient-loads-suffix-commands ()
+  "Test that requiring transient module defines referenced suffix commands."
+  (require 'jupiterweb-transient)
+  (should (fboundp 'jupiterweb-dispatch))
+  (should (fboundp 'jupiterweb-cache-clear-memory))
+  (should (fboundp 'jupiterweb-cache-clear-disk))
+  (should (fboundp 'jupiterweb-export-cache-json)))
+
+(ert-deftest jupiterweb-test-export-json-disciplines-is-array ()
+  "Test that exported JSON encodes disciplines as an array, not an object."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-export/"))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (setq jupiterweb--curriculum-memory
+          (list :course-key "43-43031-0-N"
+                :disciplines (list (list :sgldis "4300151"
+                                         :name "Test Discipline"))))
+    (let ((file "/tmp/test-jupiterweb-export/out.json"))
+      (jupiterweb-export-cache-json file nil)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (let* ((json-object-type 'plist)
+               (json-array-type 'list)
+               (json-key-type 'keyword)
+               (data (json-read)))
+          (should (listp (plist-get data :disciplines)))
+          (should (equal (plist-get (car (plist-get data :disciplines)) :sgldis)
+                         "4300151")))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
 
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here

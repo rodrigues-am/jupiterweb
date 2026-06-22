@@ -15,9 +15,22 @@
 (require 'jupiterweb-vars)
 (require 'jupiterweb-cache)
 
+(defun jupiterweb--json-alist-p (data)
+  "Return non-nil when DATA is an alist suitable for JSON object encoding."
+  (and (listp data)
+       (not (null data))
+       (seq-every-p
+        (lambda (elt)
+          (and (consp elt)
+               (let ((key (car elt)))
+                 (or (stringp key)
+                     (symbolp key)
+                     (numberp key)))))
+        data)))
+
 (defun jupiterweb--alist-to-json (data)
   "Recursively convert DATA for JSON serialization.
-Converts alists to hash tables and lists to vectors."
+Converts alists to hash tables and JSON arrays to vectors."
   (cond
    ((null data) nil)
    ((stringp data) data)
@@ -28,19 +41,17 @@ Converts alists to hash tables and lists to vectors."
     (let ((ht (make-hash-table :test 'equal)))
       (maphash (lambda (k v) (puthash k (jupiterweb--alist-to-json v) ht)) data)
       ht))
+   ((jupiterweb--json-alist-p data)
+    (let ((ht (make-hash-table :test 'equal)))
+      (dolist (pair data)
+        (puthash (cond ((stringp (car pair)) (car pair))
+                       ((symbolp (car pair)) (symbol-name (car pair)))
+                       (t (format "%s" (car pair))))
+                 (jupiterweb--alist-to-json (cdr pair))
+                 ht))
+      ht))
    ((listp data)
-    (if (consp (car data))
-        ;; It's an alist — convert to hash table
-        (let ((ht (make-hash-table :test 'equal)))
-          (dolist (pair data)
-            (puthash (cond ((stringp (car pair)) (car pair))
-                           ((symbolp (car pair)) (symbol-name (car pair)))
-                           (t (format "%s" (car pair))))
-                     (jupiterweb--alist-to-json (cdr pair))
-                     ht))
-          ht)
-      ;; It's a plain list (array) — convert to vector
-      (vconcat (mapcar #'jupiterweb--alist-to-json data))))
+    (vconcat (mapcar #'jupiterweb--alist-to-json data)))
    (t data)))
 
 (defun jupiterweb--plist-to-json-key (keyword)

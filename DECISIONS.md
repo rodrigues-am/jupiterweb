@@ -94,6 +94,11 @@ All tasks JW-000 through JW-163 have been completed.
    pages use NFC encoding. Regex patterns in the Elisp parser use `.` to match
    any character in accented positions (e.g., `Cr.editos` matches `Créditos`).
 
+8. **Emacs JSON arrays must use vectors/hash tables**: In Emacs 30, `json-serialize`
+   can misclassify nested lists-of-plists or lists-of-alists as JSON objects.
+   For reliable encoding, convert JSON objects to hash tables and JSON arrays to
+   vectors before serialization.
+
 ### Known limitations
 
 - No fixtures saved (JW-040, JW-041, JW-042) — requires network access to
