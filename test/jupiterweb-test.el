@@ -159,5 +159,43 @@
   (should (equal (jupiterweb--normalize-unicode "") ""))
   (should (null (jupiterweb--normalize-unicode nil))))
 
+;;; Field text cleanup
+
+(ert-deftest jupiterweb-test-clean-field-text ()
+  "Test that `jupiterweb--clean-field-text' cleans fields correctly."
+  ;; Basic whitespace normalization.
+  (should (equal (jupiterweb--clean-field-text "  hello   world  ")
+                 "hello world"))
+  ;; Literal \\n, \\r, \\t sequences removed.
+  (should (equal (jupiterweb--clean-field-text "hello\\nworld")
+                 "hello world"))
+  (should (equal (jupiterweb--clean-field-text "hello\\r\\nworld")
+                 "hello world"))
+  (should (equal (jupiterweb--clean-field-text "hello\\tworld")
+                 "hello world"))
+  ;; Stray backslashes removed.
+  (should (equal (jupiterweb--clean-field-text "hello\\world")
+                 "hello world"))
+  ;; HTML entities unescaped (double, like Python).
+  (should (equal (jupiterweb--clean-field-text "&amp;amp;hello")
+                 "&hello"))
+  (should (equal (jupiterweb--clean-field-text "&lt;b&gt;bold&lt;/b&gt;")
+                 "<b>bold</b>"))
+  ;; nil → nil.
+  (should (null (jupiterweb--clean-field-text nil)))
+  ;; Empty string → nil.
+  (should (null (jupiterweb--clean-field-text "")))
+  ;; Whitespace only → nil.
+  (should (null (jupiterweb--clean-field-text "   ")))
+  ;; Stripping semicolons and colons from edges.
+  (should (equal (jupiterweb--clean-field-text ";:hello;:")
+                 "hello"))
+  ;; Preserve breaks mode.
+  (should (equal (jupiterweb--clean-field-text "line1\n\n\nline2" t)
+                 "line1\n\nline2"))
+  ;; Double quotes converted to typographic quotes.
+  (should (equal (jupiterweb--clean-field-text "say \"hello\" now")
+                 "say \u201Chello\u201D now")))
+
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here

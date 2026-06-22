@@ -230,7 +230,7 @@ Port Python =CONTROLES_CP1252=.
 
 Port Python =ESPACOS_INVISIVEIS=.
 
-** NEXT [#B] JW-022 Port field text cleanup :D2:port:test:
+** DONE [#B] JW-022 Port field text cleanup :D2:port:test:
 :PROPERTIES:
 :ID: JW-022
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -241,7 +241,7 @@ Port Python =ESPACOS_INVISIVEIS=.
 
 Port Python =limpar_texto_campo=.
 
-** TODO [#B] JW-023 Port HTML-to-plain-text conversion :D2:port:parser:test:
+** NEXT [#B] JW-023 Port HTML-to-plain-text conversion :D2:port:parser:test:
 :PROPERTIES:
 :ID: JW-023
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el

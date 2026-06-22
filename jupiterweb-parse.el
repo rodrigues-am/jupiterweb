@@ -174,13 +174,81 @@ Ported from Python normalizar_unicode."
             (ucs-normalize-NFC-string normalized)
           (error normalized))))))
 
+(defun jupiterweb--html-unescape (text)
+  "HTML-unescape TEXT.
+Convert HTML entities like &amp;, &lt;, &gt;, &quot;, &#NNN;, &#xHHH;,
+and &nbsp; to their character equivalents.  Applied twice for nested entities."
+  (if (or (null text) (string-empty-p text))
+      text
+    (with-temp-buffer
+      (insert text)
+      (dotimes (_ 2)
+        (goto-char (point-min))
+        (while (re-search-forward "&\\(#\\([0-9]+\\)\\|#x\\([0-9a-fA-F]+\\)\\|\\(amp\\|lt\\|gt\\|quot\\|nbsp\\|apos\\);\\)" nil t)
+          (let ((match (match-string 1))
+                (num (match-string 2))
+                (hex (match-string 3))
+                (name (match-string 4)))
+            (cond
+             (num
+              (replace-match (string (string-to-number num)) t t))
+             (hex
+              (replace-match (string (string-to-number hex 16)) t t))
+             (t
+              (replace-match
+               (pcase name
+                 ("amp" "&")
+                 ("lt" "<")
+                 ("gt" ">")
+                 ("quot" "\"")
+                 ("nbsp" " ")
+                 ("apos" "'")
+                 (_ match))
+               t t))))))
+      (buffer-string))))
+
 (defun jupiterweb--convert-double-quotes (text)
-  "Convert safe internal straight quotes to typographic quotes."
-  (error "jupiterweb--convert-double-quotes not yet implemented"))
+  "Convert safe internal straight quotes to typographic quotes in TEXT.
+Iteratively replace pairs of double quotes on the same line with
+curly quotes.  Ported from Python converter_aspas_duplas."
+  (if (or (null text) (string-empty-p text))
+      text
+    (let ((result text)
+          (prev nil))
+      (while (not (equal prev result))
+        (setq prev result)
+        (setq result (replace-regexp-in-string
+                      "\"\\([^\"]*?\\)\""
+                      "\u201C\\1\u201D"
+                      result)))
+      result)))
 
 (defun jupiterweb--clean-field-text (text &optional preserve-breaks)
-  "Clean a parsed field."
-  (error "jupiterweb--clean-field-text not yet implemented"))
+  "Clean a parsed field TEXT.
+When PRESERVE-BREAKS is non-nil, preserve line breaks; otherwise collapse
+all whitespace to single spaces.  Ported from Python limpar_texto_campo."
+  (if (null text)
+      nil
+    (let* ((s (if (stringp text) text (format "%s" text)))
+           (s (jupiterweb--html-unescape s))
+           (s (jupiterweb--normalize-unicode s))
+           ;; Remove literal \\n, \\r, \\t sequences from already-escaped text.
+           (s (replace-regexp-in-string "\\\\[rnt]+" " " s))
+           ;; Remove stray backslashes.
+           (s (replace-regexp-in-string "\\\\" " " s))
+           (s (jupiterweb--convert-double-quotes s))
+           (s (replace-regexp-in-string "\r\n" "\n" s))
+           (s (replace-regexp-in-string "\r" "\n" s))
+           (s (replace-regexp-in-string "\t" " " s)))
+      (if preserve-breaks
+          (progn
+            (setq s (replace-regexp-in-string "[ \f\v]+" " " s))
+            (setq s (replace-regexp-in-string " *\n *" "\n" s))
+            (setq s (replace-regexp-in-string "\n\\{3,\\}" "\n\n" s)))
+        (setq s (replace-regexp-in-string "\\s-+" " " s)))
+      ;; Strip leading/trailing spaces, newlines, tabs, semicolons, colons.
+      (setq s (string-trim s "[ \n\t;:]+" "[ \n\t;:]+"))
+      (if (string-empty-p s) nil s))))
 
 (defun jupiterweb--html-to-plain-text (html)
   "Convert HTML to text while preserving section heading line breaks."
