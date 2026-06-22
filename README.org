@@ -124,13 +124,73 @@ When Transient is not available, all commands work via =M-x=.
 
 * Cache behavior
 
+The package uses two cache layers:
+
+- *in-memory cache* :: lives in =jupiterweb--curriculum-memory= and =jupiterweb--discipline-memory= for the current Emacs session;
+- *disk cache* :: JSON files stored in =jupiterweb-cache-directory= (default: =~/.emacs.d/jupiterweb/=).
+
 The variable =jupiterweb-cache-fetch-policy= controls when missing syllabus data is fetched:
 
-- =lazy= (default) :: Fetch syllabus on demand when a discipline is selected, viewed, or inserted.
+- =lazy= (default) :: Fetch syllabus on demand when a discipline is selected, viewed, inserted, or exported.
 - =eager= :: Refreshing the curriculum also fetches all syllabi.
 - =manual= :: Never fetch missing syllabi automatically.
 
-Cache files are stored in =jupiterweb-cache-directory= (default: =~/.emacs.d/jupiterweb/=) as JSON.
+Useful commands:
+
+| Command | Effect |
+|---------+--------|
+| =jupiterweb-refresh-curriculum-cache= | Fetch curriculum page, parse it, store it in memory and on disk |
+| =jupiterweb-refresh-discipline-cache= | Fetch one syllabus page and cache it |
+| =jupiterweb-refresh-all-discipline-caches= | Refresh all non-provisional syllabi |
+| =jupiterweb-cache-clear-memory= | Clear only in-memory cache |
+| =jupiterweb-cache-clear-disk= | Remove JSON cache files from disk |
+
+Cache file naming follows the current course parameters:
+
+- curriculum :: =grade-codcg-43-codcur-43031-codhab-0-tipo-N.json=
+- discipline :: =disciplina-4300151-codcur-43031-codhab-0.json=
+
+This means changing =jupiterweb-codcur= or =jupiterweb-codhab= naturally switches to a different cache namespace.
+
+* JSON export
+
+Use =M-x jupiterweb-export-cache-json= (or =j= inside the Transient menu) to export the current curriculum and cached syllabi.
+
+The exported JSON has this top-level structure:
+
+#+begin_src json
+{
+  "package": "jupiterweb",
+  "schema_version": 1,
+  "exported_at": "2026-06-22T02:04:27-0300",
+  "course": {
+    "codcg": "43",
+    "codcur": "43031",
+    "codhab": "0",
+    "tipo": "N",
+    "curriculum_source_url": "https://uspdigital.usp.br/jupiterweb/listarGradeCurricular?..."
+  },
+  "disciplines": [
+    {
+      "sgldis": "4300151",
+      "name": "Fundamentos de Mecânica",
+      "syllabus_status": "cached"
+    }
+  ],
+  "failures": []
+}
+#+end_src
+
+Important export details:
+
+- =disciplines= is always a *JSON array*, not an object.
+- =failures= is a *JSON array* of records like ={"sgldis": "...", "error": "..."}=.
+- each discipline record uses snake_case JSON keys such as =credits_lecture=, =workload_total=, =basic_bibliography=.
+- export reads from the current curriculum cache and attempts to ensure each discipline is present according to =jupiterweb-cache-fetch-policy=.
+- provisional =XXX= disciplines are exported as fallback records and do not trigger network fetches.
+
+If you call the command with a prefix argument, it passes =FETCH-MISSING=, intended for workflows that want to refresh missing syllabi before export.
+
 
 * View buffer
 
@@ -196,7 +256,7 @@ emacs --batch --eval "
     (ert-run-tests-batch-and-exit))"
 #+end_src
 
-All tests run offline. 19 ERT tests covering URL builders, decoding, normalization, HTML-to-text, key/integer helpers, cache roundtrip, format helpers, retry logic, and fallback records.
+All tests run offline. 21 ERT tests covering URL builders, decoding, normalization, HTML-to-text, key/integer helpers, cache roundtrip, export JSON shape, transient loading, format helpers, retry logic, and fallback records.
 
 * Notes
 
