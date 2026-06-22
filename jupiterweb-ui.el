@@ -117,18 +117,119 @@ When called interactively, show the selected discipline in the echo area."
 
 ;; View mode (JW-100)
 
-(define-derived-mode jupiterweb-view-mode special-mode "JupiterWeb"
-  "Read-only mode for viewing JupiterWeb syllabus data."
-  (read-only-mode 1))
-
 (defvar jupiterweb--view-origin-buffer nil
   "Origin buffer for view-mode insert commands.")
 (make-variable-buffer-local 'jupiterweb--view-origin-buffer)
 
-;; Syllabus renderer (JW-101)
+(defun jupiterweb--org-table-row (label value)
+  "Return an Org table row string for LABEL and VALUE."
+  (format "| %s | %s |" label (or value "")))
+
+(defun jupiterweb--render-syllabus-org (data)
+  "Render syllabus DATA as Org mode text for the view buffer."
+  (with-temp-buffer
+    (insert "#+title: " (or (plist-get data :name) "Unknown") "\n")
+    (insert "#+options: toc:nil num:nil\n")
+    (insert "#+latex_header: \\usepackage[margin=2.5cm]{geometry}\n")
+    (insert "\n")
+    ;; Metadata table
+    (let ((rows nil))
+      (push (jupiterweb--org-table-row "Code" (plist-get data :sgldis)) rows)
+      (when (plist-get data :name-en)
+        (push (jupiterweb--org-table-row "Name (EN)" (plist-get data :name-en)) rows))
+      (when (plist-get data :unit)
+        (push (jupiterweb--org-table-row "Unit" (plist-get data :unit)) rows))
+      (when (plist-get data :credits-lecture)
+        (push (jupiterweb--org-table-row "Credits (Lecture)"
+                                         (number-to-string (plist-get data :credits-lecture))) rows))
+      (when (plist-get data :credits-work)
+        (push (jupiterweb--org-table-row "Credits (Work)"
+                                         (number-to-string (plist-get data :credits-work))) rows))
+      (when (plist-get data :workload-total)
+        (push (jupiterweb--org-table-row "Total Workload"
+                                         (format "%s h" (plist-get data :workload-total))) rows))
+      (when (plist-get data :workload-pcc)
+        (push (jupiterweb--org-table-row "PCC Workload"
+                                         (format "%s h" (plist-get data :workload-pcc))) rows))
+      (when (plist-get data :type)
+        (push (jupiterweb--org-table-row "Type" (plist-get data :type)) rows))
+      (when (plist-get data :activation)
+        (push (jupiterweb--org-table-row "Activation" (plist-get data :activation)) rows))
+      (when (plist-get data :deactivation)
+        (push (jupiterweb--org-table-row "Deactivation" (plist-get data :deactivation)) rows))
+      (setq rows (nreverse rows))
+      (insert "| Field | Value |\n")
+      (insert "|-------+-------|\n")
+      (dolist (row rows)
+        (insert row "\n")))
+    (insert "\n")
+    ;; Text sections as Org headings
+    (dolist (section '(("Syllabus" :syllabus)
+                       ("Objectives" :objectives)
+                       ("Summary Program" :summary-program)
+                       ("Program" :program)
+                       ("Teaching Method" :teaching-method)
+                       ("Assessment" :assessment-method)
+                       ("Recovery Rule" :recovery-rule)
+                       ("Bibliography" :bibliography)
+                       ("Basic Bibliography" :basic-bibliography)
+                       ("Complementary Bibliography" :complementary-bibliography)))
+      (let ((title (car section))
+            (key (cadr section)))
+        (let ((content (plist-get data key)))
+          (when content
+            (insert "* " title "\n\n")
+            (insert content "\n\n")))))
+    (buffer-string)))
+
+(defun jupiterweb--configure-view-buffer (buf)
+  "Configure BUF for comfortable read-only Org viewing."
+  (with-current-buffer buf
+    (org-mode)
+    (visual-line-mode 1)
+    (when (fboundp 'variable-pitch-mode)
+      (variable-pitch-mode 1))
+    (when (require 'olivetti nil t)
+      (olivetti-mode 1))
+    (display-line-numbers-mode -1)
+    (read-only-mode 1)))
+
+;;;###autoload
+(defun jupiterweb-view-discipline ()
+  "View syllabus for a selected discipline in a side buffer.
+The buffer is formatted as read-only Org mode with a metadata table
+and section headings, suitable for comfortable reading and PDF export."
+  (interactive)
+  (let* ((d (jupiterweb-select-discipline))
+         (sgldis (plist-get d :sgldis))
+         (origin-buffer (current-buffer)))
+    (when d
+      (let* ((data (jupiterweb--ensure-discipline sgldis))
+             (buf-name (format "*JupiterWeb: %s - %s*"
+                               sgldis (or (plist-get data :name) "")))
+             (buf (get-buffer-create buf-name)))
+        (with-current-buffer buf
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert (jupiterweb--render-syllabus-org data))
+            (goto-char (point-min)))
+          (jupiterweb--configure-view-buffer buf))
+        (setq jupiterweb--view-origin-buffer origin-buffer)
+        (display-buffer-in-side-window buf
+                                        (list (cons 'side
+                                                   (cond
+                                                    ((eq jupiterweb-view-side 'right) 'right)
+                                                    ((eq jupiterweb-view-side 'left) 'left)
+                                                    ((eq jupiterweb-view-side 'top) 'top)
+                                                    ((eq jupiterweb-view-side 'bottom) 'bottom)))
+                                              (cons 'slot 0)
+                                              (cons 'window-width
+                                                   jupiterweb-view-window-width)))))))
+
+;; Keep the old text renderer for backward compatibility / tests
 
 (defun jupiterweb--render-syllabus (data)
-  "Render syllabus DATA as formatted text for the view buffer."
+  "Render syllabus DATA as plain formatted text (legacy)."
   (let ((sep (make-string 40 ?\u2500)))
     (with-temp-buffer
       (insert (jupiterweb--format-code-name data) "\n")
@@ -159,38 +260,6 @@ When called interactively, show the selected discipline in the echo area."
             (when content
               (insert "\n" sep "\n" title "\n" sep "\n\n" content "\n")))))
       (buffer-string))))
-
-;; View command (JW-102)
-
-;;;###autoload
-(defun jupiterweb-view-discipline ()
-  "View syllabus for a selected discipline in a side buffer."
-  (interactive)
-  (let* ((d (jupiterweb-select-discipline))
-         (sgldis (plist-get d :sgldis))
-         (origin-buffer (current-buffer)))
-    (when d
-      (let* ((data (jupiterweb--ensure-discipline sgldis))
-             (buf-name (format "*JupiterWeb: %s - %s*"
-                               sgldis (or (plist-get data :name) "")))
-             (buf (get-buffer-create buf-name)))
-        (with-current-buffer buf
-          (jupiterweb-view-mode)
-          (let ((inhibit-read-only t))
-            (erase-buffer)
-            (insert (jupiterweb--render-syllabus data))
-            (goto-char (point-min)))
-          (setq jupiterweb--view-origin-buffer origin-buffer))
-        (display-buffer-in-side-window buf
-                                        (list (cons 'side
-                                                   (cond
-                                                    ((eq jupiterweb-view-side 'right) 'right)
-                                                    ((eq jupiterweb-view-side 'left) 'left)
-                                                    ((eq jupiterweb-view-side 'top) 'top)
-                                                    ((eq jupiterweb-view-side 'bottom) 'bottom)))
-                                              (cons 'slot 0)
-                                              (cons 'window-width
-                                                   jupiterweb-view-window-width)))))))
 
 ;; Section list helper (JW-110)
 

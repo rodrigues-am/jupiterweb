@@ -290,6 +290,38 @@ Bibliografia<br><br>ALMEIDA, M.J.P.M. Discursos da Ci&ecirc;ncia.<br>
     (should (assoc "Objectives" sections))
     (should (assoc "Bibliography" sections))))
 
+(ert-deftest jupiterweb-test-render-syllabus-org-format ()
+  "Test Org mode rendering has title, options, table, and section headings."
+  (let* ((data (list :sgldis "4300157"
+                     :name "Ciência, Educação e Linguagem"
+                     :name-en "Science, Education and Language"
+                     :credits-lecture 2
+                     :credits-work 1
+                     :workload-total 60
+                     :workload-pcc 30
+                     :type "Presencial"
+                     :activation "01/01/2019"
+                     :syllabus "Ementa real"
+                     :objectives "Objetivos reais"
+                     :summary-program "Programa resumido"
+                     :bibliography "Bibliografia real"))
+         (rendered (jupiterweb--render-syllabus-org data)))
+    (should (string-match-p "#\\+title: Ci" rendered))
+    (should (string-match-p "#\\+options: toc:nil num:nil" rendered))
+    (should (string-match-p "#\\+latex_header" rendered))
+    (should (string-match-p "| Field | Value |" rendered))
+    (should (string-match-p "| Code | 4300157 |" rendered))
+    (should (string-match-p "| Credits (Lecture) | 2 |" rendered))
+    (should (string-match-p "| Total Workload | 60 h |" rendered))
+    (should (string-match-p "| PCC Workload | 30 h |" rendered))
+    (should (string-match-p "\\* Syllabus" rendered))
+    (should (string-match-p "\\* Objectives" rendered))
+    (should (string-match-p "\\* Bibliography" rendered))
+    (should (string-match-p "Ementa real" rendered))
+    ;; Should NOT include sections that are nil
+    (should-not (string-match-p "\\* Teaching Method" rendered))
+    (should-not (string-match-p "\\* Recovery Rule" rendered))))
+
 ;;; Cache filename helpers
 
 (ert-deftest jupiterweb-test-cache-filenames ()

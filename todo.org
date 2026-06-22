@@ -930,3 +930,9 @@ require: Symbol’s value as variable is void: jupiterweb-dispatch
 Investigar a diferença entre =require= local, autoloads/byte-compile e a configuração do host em =../home/andre/nixos-flake/home-manager/emacs/=. O pacote não pode interromper o carregamento das configurações do Doom; =jupiterweb-dispatch= deve existir como comando público quando Transient estiver disponível e como fallback seguro quando não estiver.
 
 Resultado: corrigido em =jupiterweb-transient.el= carregando =transient= também em compile-time com =eval-and-compile=. A causa era o byte-compiler tratar =transient-define-prefix= como chamada comum quando a macro não estava carregada, avaliando =jupiterweb-dispatch= como variável. Adicionado teste de regressão para byte-compilar =jupiterweb-transient.el= e =jupiterweb.el= sem esse erro.
+
+
+** DONE Transformar esse prompt em tarefas
+As informações aparecem corretamente. Contudo gostaria que o buffer estivesse estruturado como read-oly usando orgmode, de forma que o nome da disciplina como #+title: e com uma #+options: sem toc e num, informações inciais poderiam ser apresentadas em uma tabela (org-table) para que possa ser facilmente exportada como PDF via latex pelo despahcer regular do emacs. No modo de visualização é importante que as linhas estejam com o wrapper de linha e uma boa margem tanto na direita e esquerda. Sem numeração de linha, usando fontes de espaçamento variavel (ver na minha configuração do emas como organizei o olivetti mode para ter como insperação.)
+
+Resultado: view reescrita como buffer Org mode read-only com =#+title:=, =#+options: toc:nil num:nil=, =#+latex_header:= para margens, tabela org-table com metadados, seções como headings Org, =visual-line-mode=, =variable-pitch-mode=, =olivetti-mode= (se disponível) e sem numeração de linha. Pronto para exportação PDF via =C-c C-e l p= no dispatcher do Emacs.
