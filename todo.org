@@ -155,7 +155,7 @@ Each =.el= file must contain:
 
 * Phase 1 — Package core
 
-** NEXT [#A] JW-010 Implement package entry point :D1:
+** DONE [#A] JW-010 Implement package entry point :D1:
 :PROPERTIES:
 :ID: JW-010
 :FILES: jupiterweb.el
@@ -165,7 +165,7 @@ Each =.el= file must contain:
 
 Implement =jupiterweb.el= as the main entry point.
 
-** TODO [#A] JW-011 Implement customization group and variables :D1:
+** DONE [#A] JW-011 Implement customization group and variables :D1:
 :PROPERTIES:
 :ID: JW-011
 :FILES: jupiterweb-vars.el
@@ -175,7 +175,7 @@ Implement =jupiterweb.el= as the main entry point.
 
 Implement all variables listed in =SPEC.md=.
 
-** TODO [#A] JW-012 Implement course key and URL builders :D1:test:
+** DONE [#A] JW-012 Implement course key and URL builders :D1:test:
 :PROPERTIES:
 :ID: JW-012
 :FILES: jupiterweb-vars.el jupiterweb-http.el test/jupiterweb-test.el
@@ -190,7 +190,7 @@ Implement:
 - =jupiterweb--grade-url=
 - =jupiterweb--discipline-url=
 
-** TODO [#B] JW-013 Implement course-setting and memory invalidation :D2:cache:
+** NEXT [#B] JW-013 Implement course-setting and memory invalidation :D2:cache:
 :PROPERTIES:
 :ID: JW-013
 :FILES: jupiterweb-vars.el jupiterweb-cache.el test/jupiterweb-test.el
