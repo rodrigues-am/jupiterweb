@@ -1,0 +1,206 @@
+#+title: jupiterweb
+
+=jupiterweb= is an Emacs Lisp package for querying, caching, viewing, inserting, and exporting USP JupiterWeb curriculum and syllabus data.
+
+The default course is the Physics Teaching Degree (Licenciatura em Física) at USP, but any USP course can be configured via customizable variables.
+
+* Why this exists
+
+Manually looking up discipline codes, syllabi, and bibliographies on the JupiterWeb website is tedious. This package brings all that data directly into Emacs, so you can:
+
+- Search and select disciplines by name or code;
+- Insert discipline references in =Name (Code)= or =Code - Name= format;
+- View full syllabi in a read-only side buffer;
+- Insert syllabus sections (objectives, program, bibliography, etc.) as editable plain text;
+- Export the entire curriculum with syllabi to JSON;
+- Work offline using cached data.
+
+Parser logic was ported from the Python reference implementation =scrape_jupiterweb.py= (see =DECISIONS.md= for the full porting map).
+
+* Installation with Doom Emacs
+
+In =~/.doom.d/packages.el=:
+
+#+begin_src emacs-lisp
+(package! jupiterweb
+  :recipe (:host github
+           :repo "rodrigues-am/jupiterweb"
+           :files ("*.el" "test/*.el")))
+#+end_src
+
+Then run:
+
+#+begin_src sh
+doom sync
+#+end_src
+
+* Configuration
+
+In your =config.el= (or =config.org=):
+
+#+begin_src emacs-lisp
+(use-package! jupiterweb
+  :after (url json)
+  :config
+  ;; Default: Physics Teaching Degree at USP
+  (setq jupiterweb-codcg "43"
+        jupiterweb-codcur "43031"
+        jupiterweb-codhab "0"
+        jupiterweb-tipo "N"))
+#+end_src
+
+** Keybindings for Doom Emacs
+
+To call the Transient dispatcher with =M-p j= and the Consult-based discipline search with =M-p p=, add this to your =config.el=:
+
+#+begin_src emacs-lisp
+(map! :leader
+      :prefix ("p" . "jupiterweb")
+      :desc "JupiterWeb dispatch"         "j" #'jupiterweb-dispatch
+      :desc "Select discipline (Consult)" "p" #'jupiterweb-select-discipline
+      :desc "Insert Name (Code)"          "n" #'jupiterweb-insert-name-code
+      :desc "Insert Code - Name"          "i" #'jupiterweb-insert-code-name
+      :desc "View syllabus"               "v" #'jupiterweb-view-discipline
+      :desc "Insert syllabus section"     "s" #'jupiterweb-insert-discipline-section
+      :desc "Export to JSON"              "e" #'jupiterweb-export-cache-json
+      :desc "Refresh curriculum"          "g" #'jupiterweb-refresh-curriculum-cache
+      :desc "Refresh all disciplines"     "a" #'jupiterweb-refresh-all-discipline-caches
+      :desc "Set course"                  "u" #'jupiterweb-set-course)
+#+end_src
+
+This binds =SPC p j= for the Transient menu and =SPC p p= for Consult selection, following Doom's leader-key convention. If you prefer the literal =M-p= prefix (non-leader), use:
+
+#+begin_src emacs-lisp
+(map! :map global-map
+      "M-p j" #'jupiterweb-dispatch
+      "M-p p" #'jupiterweb-select-discipline)
+#+end_src
+
+* Transient menu
+
+When the =transient= package is available, =M-x jupiterweb-dispatch= (or =SPC p j=) opens this dispatcher:
+
+#+begin_example
+JupiterWeb
+
+Insert                                    View
+ n  Insert Name (Code)                    v  View syllabus
+ i  Insert Code - Name
+ s  Insert section
+ o  Insert objectives
+ r  Insert summary program
+ p  Insert program
+ a  Insert assessment
+ b  Insert bibliography
+
+Cache                                     Export            Course
+ g  Refresh curriculum                    j  Export to JSON  u  Set course
+ d  Refresh one discipline
+ A  Refresh all disciplines
+ m  Clear memory cache
+ C  Clear disk cache
+#+end_example
+
+| Key | Action |
+|-----+--------|
+| =n= | Insert =Name (Code)= at point |
+| =i= | Insert =Code - Name= at point |
+| =s= | Select discipline, then insert a section |
+| =o= | Insert objectives |
+| =r= | Insert summary program |
+| =p= | Insert program |
+| =a= | Insert assessment |
+| =b= | Insert bibliography |
+| =v= | View syllabus in side buffer |
+| =g= | Refresh curriculum cache |
+| =d= | Refresh one discipline syllabus |
+| =A= | Refresh all discipline syllabi |
+| =m= | Clear in-memory cache |
+| =C= | Clear disk cache |
+| =j= | Export cached data to JSON |
+| =u= | Set course parameters |
+
+When Transient is not available, all commands work via =M-x=.
+
+* Cache behavior
+
+The variable =jupiterweb-cache-fetch-policy= controls when missing syllabus data is fetched:
+
+- =lazy= (default) :: Fetch syllabus on demand when a discipline is selected, viewed, or inserted.
+- =eager= :: Refreshing the curriculum also fetches all syllabi.
+- =manual= :: Never fetch missing syllabi automatically.
+
+Cache files are stored in =jupiterweb-cache-directory= (default: =~/.emacs.d/jupiterweb/=) as JSON.
+
+* View buffer
+
+=jupiterweb-view-discipline= opens a read-only side buffer with the syllabus:
+
+#+begin_example
+4300151 - Fundamentos de Mecânica
+Introduction to Mechanics
+
+Unit:               IF
+Credits Lecture:    4
+Credits Work:       0
+Total Workload:     60 h
+Type:               Semestral
+Activation:         ...
+
+────────────────────────────────────────
+Objectives
+────────────────────────────────────────
+
+...
+
+────────────────────────────────────────
+Program
+────────────────────────────────────────
+
+...
+#+end_example
+
+Keybindings in the view buffer:
+
+| Key | Action |
+|-----+--------|
+| =q= | Quit window |
+| =g= | Refresh syllabus |
+| =i= | Insert =Name (Code)= into origin buffer |
+| =I= | Insert =Code - Name= into origin buffer |
+
+* Customization variables
+
+| Variable | Default | Description |
+|----------+---------+-------------|
+| =jupiterweb-codcg= | ="43"= | USP unit code |
+| =jupiterweb-codcur= | ="43031"= | USP course code |
+| =jupiterweb-codhab= | ="0"= | USP habilitation code |
+| =jupiterweb-tipo= | ="N"= | Curriculum type |
+| =jupiterweb-cache-directory= | =~/.emacs.d/jupiterweb/= | Cache directory |
+| =jupiterweb-cache-fetch-policy= | =lazy= | Fetch policy |
+| =jupiterweb-http-timeout= | =40= | HTTP timeout (seconds) |
+| =jupiterweb-retries= | =3= | HTTP retry count |
+| =jupiterweb-request-delay= | =0.5= | Delay between batch requests |
+| =jupiterweb-user-agent= | =Mozilla/5.0 ...= | User-Agent string |
+| =jupiterweb-codhab-fallbacks= | =("0" "4")= | Habilitation fallback codes |
+| =jupiterweb-view-side= | =right= | Side buffer position |
+| =jupiterweb-view-window-width= | =0.42= | Relative window width |
+
+* Testing
+
+#+begin_src sh
+emacs --batch --eval "
+  (let ((load-path (cons \".\" (cons \"test\" load-path))))
+    (require 'jupiterweb-test)
+    (ert-run-tests-batch-and-exit))"
+#+end_src
+
+All tests run offline. 19 ERT tests covering URL builders, decoding, normalization, HTML-to-text, key/integer helpers, cache roundtrip, format helpers, retry logic, and fallback records.
+
+* Notes
+
+- Discipline codes ending in =XXX= are provisional and never trigger network requests.
+- The package works without Consult (uses =completing-read= fallback) and without Marginalia.
+- The Transient menu requires the =transient= package (included with Magit).
+- Parser logic is ported from =scrape_jupiterweb.py=; see =DECISIONS.md= for the mapping.
