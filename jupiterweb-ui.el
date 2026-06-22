@@ -28,12 +28,37 @@
 
 ;; Candidate builder (JW-091)
 
+(defun jupiterweb--discipline-name-missing-p (discipline)
+  "Return non-nil when DISCIPLINE has no useful human-readable name."
+  (let ((name (plist-get discipline :name))
+        (sgldis (plist-get discipline :sgldis)))
+    (or (null name)
+        (string-empty-p (string-trim name))
+        (and sgldis (string= (string-trim name) (string-trim sgldis))))))
+
+(defun jupiterweb--discipline-display-record (discipline)
+  "Return DISCIPLINE enriched with cached/fetched name data when needed."
+  (if (jupiterweb--discipline-name-missing-p discipline)
+      (let* ((sgldis (plist-get discipline :sgldis))
+             (cached (and sgldis (ignore-errors (jupiterweb--ensure-discipline sgldis)))))
+        (if (and cached (plist-get cached :name)
+                 (not (jupiterweb--discipline-name-missing-p cached)))
+            (let ((record (copy-sequence discipline)))
+              (setq record (plist-put record :name (plist-get cached :name)))
+              (when (and (plist-get cached :name-en)
+                         (not (plist-get record :name-en)))
+                (setq record (plist-put record :name-en (plist-get cached :name-en))))
+              record)
+          discipline))
+    discipline))
+
 (defun jupiterweb--build-candidates ()
   "Build completion candidates from curriculum data."
   (let ((curriculum (jupiterweb--ensure-curriculum)))
     (when curriculum
       (mapcar (lambda (d)
-                (cons (jupiterweb--format-name-code d) d))
+                (let ((record (jupiterweb--discipline-display-record d)))
+                  (cons (jupiterweb--format-name-code record) record)))
               (plist-get curriculum :disciplines)))))
 
 (defun jupiterweb--accent-insensitive-key (str)
@@ -54,8 +79,11 @@
 
 ;; Selection (JW-092)
 
+;;;###autoload
 (defun jupiterweb-select-discipline ()
-  "Let user select a discipline by name or code."
+  "Let user select a discipline by name or code.
+When called interactively, show the selected discipline in the echo area."
+  (interactive)
   (let* ((candidates (jupiterweb--build-candidates))
          (display-candidates (mapcar #'car candidates))
          (selected (if (and (require 'consult nil t)
@@ -63,9 +91,11 @@
                         (consult-read display-candidates
                                       :prompt "Select discipline: "
                                       :category 'jupiterweb-discipline)
-                      (completing-read "Select discipline: " display-candidates nil t))))
-    (when selected
-      (cdr (assoc selected candidates)))))
+                      (completing-read "Select discipline: " display-candidates nil t)))
+         (discipline (and selected (cdr (assoc selected candidates)))))
+    (when (and discipline (called-interactively-p 'interactive))
+      (message "%s" (jupiterweb--format-name-code discipline)))
+    discipline))
 
 ;; Insert commands (JW-093, JW-094)
 

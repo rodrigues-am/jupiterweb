@@ -277,6 +277,19 @@
                   (list :name "Fundamentos de Mecanica" :sgldis "4300151"))
                  "4300151 - Fundamentos de Mecanica")))
 
+(ert-deftest jupiterweb-test-display-record-fills-missing-name-from-cache ()
+  "Test display record enrichment when curriculum name is missing or equals code."
+  (cl-letf (((symbol-function 'jupiterweb--ensure-discipline)
+             (lambda (_sgldis)
+               (list :sgldis "4300151" :name "Fundamentos de Mecanica" :name-en "Mechanics"))))
+    (let ((record (jupiterweb--discipline-display-record
+                   (list :sgldis "4300151" :name "4300151"))))
+      (should (equal (plist-get record :name) "Fundamentos de Mecanica"))
+      (should (equal (jupiterweb--format-name-code record)
+                     "Fundamentos de Mecanica (4300151)"))
+      (should (equal (jupiterweb--format-code-name record)
+                     "4300151 - Fundamentos de Mecanica")))))
+
 ;;; Retry helper
 
 (ert-deftest jupiterweb-test-retry-helper ()
@@ -327,9 +340,10 @@
   "Test that requiring transient module defines referenced suffix commands."
   (require 'jupiterweb-transient)
   (should (fboundp 'jupiterweb-dispatch))
-  (should (fboundp 'jupiterweb-cache-clear-memory))
-  (should (fboundp 'jupiterweb-cache-clear-disk))
-  (should (fboundp 'jupiterweb-export-cache-json)))
+  (should (commandp 'jupiterweb-cache-clear-memory))
+  (should (commandp 'jupiterweb-cache-clear-disk))
+  (should (commandp 'jupiterweb-export-cache-json))
+  (should (commandp 'jupiterweb-select-discipline)))
 
 (ert-deftest jupiterweb-test-export-json-disciplines-is-array ()
   "Test that exported JSON encodes disciplines as an array, not an object."

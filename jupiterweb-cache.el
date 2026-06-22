@@ -120,11 +120,13 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
 
 (defun jupiterweb-cache-clear-memory ()
   "Clear all in-memory caches."
+  (interactive)
   (setq jupiterweb--curriculum-memory nil
         jupiterweb--discipline-memory nil))
 
 (defun jupiterweb-cache-clear-disk (&optional course-only)
   "Clear disk cache.  If COURSE-ONLY is non-nil, remove only the current course."
+  (interactive "P")
   (if course-only
       (let ((cur-file (jupiterweb--cache-file-curriculum)))
         (when (file-exists-p cur-file)
