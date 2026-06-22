@@ -223,6 +223,73 @@
     (should (equal (plist-get first :sgldis) "4300157"))
     (should (equal (plist-get first :name) "Ciência, Educação e Linguagem"))))
 
+;;; Discipline parser
+
+(ert-deftest jupiterweb-test-html-unescape-latin-named-entities ()
+  "Test that Latin named HTML entities from JupiterWeb are decoded."
+  (should (equal (jupiterweb--html-unescape
+                  "Cr&eacute;ditos Aula &ccedil;&atilde;o &amp;eacute;")
+                 "Créditos Aula ção é")))
+
+(ert-deftest jupiterweb-test-parse-discipline-realistic-jupiterweb-html ()
+  "Test parsing discipline metadata and sections from JupiterWeb-like HTML."
+  (let* ((html "<html><body>
+Pr&oacute;-Reitoria de Gradua&ccedil;&atilde;o<br>
+IF - Instituto de F&iacute;sica<br>
+Departamento de F&iacute;sica Aplicada<br>
+Disciplina: 4300157 - Ci&ecirc;ncia, Educa&ccedil;&atilde;o e Linguagem<br><br>
+Science, Education and Language<br><br>
+Cr&eacute;ditos Aula:<br><br>2<br><br>
+Cr&eacute;ditos Trabalho:<br><br>1<br><br>
+Carga Hor&aacute;ria Total:<br><br>60 h<br>(<br><br>
+Pr&aacute;ticas como Componentes Curriculares: 30 h<br><br>)<br><br>
+Tipo:<br><br>Semestral<br><br>
+Ativa&ccedil;&atilde;o:<br><br>01/01/2019<br><br>
+Desativa&ccedil;&atilde;o:<br><br>
+Ementa<br><br>Concep&ccedil;&otilde;es de Ci&ecirc;ncia e Ensino.<br><br>
+Objetivos<br><br>Discutir letramento cient&iacute;fico.<br><br>
+Conte&uacute;do Program&aacute;tico<br><br>Linguagem e ci&ecirc;ncia.<br><br>
+Crit&eacute;rio de Avalia&ccedil;&atilde;o<br><br>Produ&ccedil;&otilde;es realizadas pelos estudantes.<br><br>
+Bibliografia<br><br>ALMEIDA, M.J.P.M. Discursos da Ci&ecirc;ncia.<br>
+</body></html>")
+         (parsed (jupiterweb-parse-discipline html "4300157" "fixture-url")))
+    (should parsed)
+    (should (equal (plist-get parsed :sgldis) "4300157"))
+    (should (equal (plist-get parsed :name) "Ciência, Educação e Linguagem"))
+    (should (equal (plist-get parsed :name-en) "Science, Education and Language"))
+    (should (equal (plist-get parsed :credits-lecture) 2))
+    (should (equal (plist-get parsed :credits-work) 1))
+    (should (equal (plist-get parsed :workload-total) 60))
+    (should (equal (plist-get parsed :workload-pcc) 30))
+    (should (equal (plist-get parsed :type) "Semestral"))
+    (should (equal (plist-get parsed :activation) "01/01/2019"))
+    (should (string-match-p "Concepções" (plist-get parsed :syllabus)))
+    (should (string-match-p "letramento" (plist-get parsed :objectives)))
+    (should (string-match-p "Linguagem" (plist-get parsed :summary-program)))
+    (should (string-match-p "Produções" (plist-get parsed :assessment-method)))
+    (should (string-match-p "Discursos da Ciência" (plist-get parsed :bibliography)))))
+
+(ert-deftest jupiterweb-test-render-and-section-list-include-parsed-syllabus ()
+  "Test view rendering and insertable section list include parsed fields."
+  (let* ((data (list :sgldis "4300157"
+                     :name "Ciência, Educação e Linguagem"
+                     :credits-lecture 2
+                     :credits-work 1
+                     :workload-total 60
+                     :activation "01/01/2019"
+                     :syllabus "Ementa real"
+                     :objectives "Objetivos reais"
+                     :summary-program "Programa resumido"
+                     :bibliography "Bibliografia real"))
+         (rendered (jupiterweb--render-syllabus data))
+         (sections (jupiterweb--section-list data)))
+    (should (string-match-p "Credits Lecture:[[:space:]]+2" rendered))
+    (should (string-match-p "Syllabus" rendered))
+    (should (string-match-p "Ementa real" rendered))
+    (should (assoc "Syllabus" sections))
+    (should (assoc "Objectives" sections))
+    (should (assoc "Bibliography" sections))))
+
 ;;; Cache filename helpers
 
 (ert-deftest jupiterweb-test-cache-filenames ()
@@ -308,10 +375,20 @@
                (lambda (_sgldis) "<html>fixture</html>"))
               ((symbol-function 'jupiterweb-parse-discipline)
                (lambda (_html sgldis _source-url)
-                 (list :sgldis sgldis :name "Ciência, Educação e Linguagem"))))
+                 (list :sgldis sgldis
+                       :name "Ciência, Educação e Linguagem"
+                       :credits-lecture 2
+                       :objectives "Parsed objectives"))))
       (jupiterweb-refresh-discipline-cache "4300157")
       (should (member "JupiterWeb: buscando disciplina 4300157 - Ciência, Educação e Linguagem"
                       messages))
+      (should (member "JupiterWeb: 🟩 Discipline 4300157 - Ciência, Educação e Linguagem loaded successfully!"
+                      messages))
+      (should (file-exists-p (jupiterweb--log-file)))
+      (with-temp-buffer
+        (insert-file-contents (jupiterweb--log-file))
+        (should (string-match-p "kind=discipline status=success" (buffer-string)))
+        (should (string-match-p "sgldis=\\\"4300157\\\"" (buffer-string))))
       (should (equal (plist-get (car (plist-get jupiterweb--curriculum-memory :disciplines)) :name)
                      "Ciência, Educação e Linguagem")))
     (jupiterweb-cache-clear-memory)
@@ -335,7 +412,59 @@
         (should (equal (plist-get record :syllabus-status) "fallback"))
         (should (file-exists-p (jupiterweb--cache-file-discipline "4300157")))
         (should (equal (plist-get (jupiterweb-cache-read-discipline "4300157") :name)
-                       "Ciência, Educação e Linguagem"))))
+                       "Ciência, Educação e Linguagem"))
+        (with-temp-buffer
+          (insert-file-contents (jupiterweb--log-file))
+          (should (string-match-p "kind=discipline status=parse-failed" (buffer-string)))
+          (should (string-match-p "reason=\\\"Could not parse discipline page\\\"" (buffer-string))))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-refresh-curriculum-logs-success ()
+  "Test curriculum refresh logs a final success message and cache file."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-refresh-curriculum/")
+        (messages nil))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (push (apply #'format fmt args) messages)))
+              ((symbol-function 'jupiterweb-fetch-curriculum-html)
+               (lambda ()
+                 "<tr><td><a href=\"obterDisciplina?sgldis=4300157&codcur=43031&codhab=0\">4300157</a></td><td>Ciência, Educação e Linguagem</td></tr>")))
+      (let ((curriculum (jupiterweb-refresh-curriculum-cache)))
+        (should (= (length (plist-get curriculum :disciplines)) 1))
+        (should (member "JupiterWeb: 🟩 Curriculum loaded successfully: 1 disciplines cached."
+                        messages))
+        (should (file-exists-p (jupiterweb--cache-file-curriculum)))
+        (with-temp-buffer
+          (insert-file-contents (jupiterweb--log-file))
+          (should (string-match-p "kind=curriculum status=success" (buffer-string)))
+          (should (string-match-p "disciplines=1" (buffer-string))))))
+    (jupiterweb-cache-clear-memory)
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))))
+
+(ert-deftest jupiterweb-test-refresh-curriculum-logs-not-found ()
+  "Test curriculum refresh logs no-link parse failures."
+  (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-refresh-curriculum-empty/")
+        (messages nil))
+    (when (file-directory-p jupiterweb-cache-directory)
+      (delete-directory jupiterweb-cache-directory t))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (push (apply #'format fmt args) messages)))
+              ((symbol-function 'jupiterweb-fetch-curriculum-html)
+               (lambda () "<html>No grade links</html>")))
+      (let ((curriculum (jupiterweb-refresh-curriculum-cache)))
+        (should (null (plist-get curriculum :disciplines)))
+        (should (member "JupiterWeb: 🔴 Curriculum load failed: no discipline links found."
+                        messages))
+        (with-temp-buffer
+          (insert-file-contents (jupiterweb--log-file))
+          (should (string-match-p "kind=curriculum status=not-found" (buffer-string)))
+          (should (string-match-p "reason=\\\"no discipline links found\\\"" (buffer-string))))))
     (jupiterweb-cache-clear-memory)
     (when (file-directory-p jupiterweb-cache-directory)
       (delete-directory jupiterweb-cache-directory t))))

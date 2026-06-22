@@ -147,7 +147,8 @@ When called interactively, show the selected discipline in the echo area."
         (insert (format "Type:\t\t%s\n" (plist-get data :type))))
       (when (plist-get data :activation)
         (insert (format "Activation:\t%s\n" (plist-get data :activation))))
-      (dolist (section '(("Objectives" :objectives)
+      (dolist (section '(("Syllabus" :syllabus)
+                         ("Objectives" :objectives)
                          ("Summary Program" :summary-program)
                          ("Program" :program)
                          ("Assessment" :assessment-method)
@@ -195,7 +196,8 @@ When called interactively, show the selected discipline in the echo area."
 
 (defun jupiterweb--section-list (syllabus)
   "Return available sections for a SYLLABUS object."
-  (let ((sections '(("Objectives" :objectives)
+  (let ((sections '(("Syllabus" :syllabus)
+                    ("Objectives" :objectives)
                     ("Summary Program" :summary-program)
                     ("Program" :program)
                     ("Teaching Method" :teaching-method)

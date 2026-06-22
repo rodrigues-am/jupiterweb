@@ -122,3 +122,5 @@ All tasks JW-000 through JW-163 have been completed.
 - Transient menu requires the `transient` package.
 - Consult integration requires the `consult` package.
 - Marginalia integration requires the `marginalia` package.
+
+11. **JupiterWeb discipline pages use named HTML entities and heading lines without colons**: Real discipline pages may contain `&eacute;`, `&ccedil;`, etc., and section headings such as `Ementa`/`Objetivos` appear as isolated lines without `:`. The parser decodes common Latin named entities, avoids `\\s-` for multiline structural matching, uses horizontal whitespace for headings, and writes `jupiterweb-refresh.log` entries with `success`, `parse-failed`, `fetch-failed`, or `not-found` status for inspection.

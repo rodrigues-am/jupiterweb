@@ -12,6 +12,7 @@
 ;;; Code:
 
 (require 'json)
+(require 'subr-x)
 (require 'jupiterweb-vars)
 (require 'jupiterweb-http)
 (require 'jupiterweb-parse)
@@ -49,6 +50,42 @@
   (unless (file-directory-p jupiterweb-cache-directory)
     (make-directory jupiterweb-cache-directory t))
   jupiterweb-cache-directory)
+
+(defun jupiterweb--log-file ()
+  "Return the inspection log filename for JupiterWeb refresh operations."
+  (expand-file-name "jupiterweb-refresh.log" jupiterweb-cache-directory))
+
+(defun jupiterweb--log-event (kind status &rest fields)
+  "Append a refresh log entry for KIND and STATUS with FIELDS.
+KIND and STATUS are symbols.  FIELDS is a plist written as key=value pairs."
+  (jupiterweb--ensure-cache-directory)
+  (with-temp-buffer
+    (insert (format "%s kind=%s status=%s"
+                    (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                    kind status))
+    (while fields
+      (let ((key (pop fields))
+            (value (pop fields)))
+        (when value
+          (insert (format " %s=%S" (substring (symbol-name key) 1) value)))))
+    (insert "\n")
+    (append-to-file (point-min) (point-max) (jupiterweb--log-file))))
+
+(defun jupiterweb--discipline-display-name (sgldis record fallback-name)
+  "Return display name for SGLDIS using RECORD or FALLBACK-NAME."
+  (or (and record (plist-get record :name))
+      (and fallback-name (not (string-empty-p fallback-name)) fallback-name)
+      sgldis))
+
+(defun jupiterweb--discipline-cache-success-p (record)
+  "Return non-nil when RECORD is a fully parsed discipline cache entry."
+  (and record
+       (not (equal (plist-get record :syllabus-status) "fallback"))
+       (plist-get record :credits-lecture)
+       (or (plist-get record :syllabus)
+           (plist-get record :objectives)
+           (plist-get record :summary-program)
+           (plist-get record :bibliography))))
 
 (defun jupiterweb--plist-to-json (data)
   "Recursively convert DATA for JSON serialization.
@@ -240,23 +277,56 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
 (defun jupiterweb-refresh-curriculum-cache ()
   "Fetch, parse, cache, and return curriculum data."
   (interactive)
-  (let* ((html (jupiterweb-fetch-curriculum-html))
-         (curriculum (list :package "jupiterweb"
-                           :kind "curriculum"
-                           :schema-version 1
-                           :codcg jupiterweb-codcg
-                           :codcur jupiterweb-codcur
-                           :codhab jupiterweb-codhab
-                           :tipo jupiterweb-tipo
-                           :source-url (jupiterweb--grade-url)
-                           :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
-                           :disciplines (jupiterweb-parse-curriculum html))))
-    (when (null (plist-get curriculum :disciplines))
-      (display-warning 'jupiterweb
-                       "No discipline links found in curriculum HTML"))
-    (setq jupiterweb--curriculum-memory curriculum)
-    (jupiterweb-cache-write-curriculum curriculum)
-    curriculum))
+  (message "JupiterWeb: loading curriculum %s/%s/%s/%s"
+           jupiterweb-codcg jupiterweb-codcur jupiterweb-codhab jupiterweb-tipo)
+  (condition-case err
+      (let* ((html (jupiterweb-fetch-curriculum-html))
+             (disciplines (jupiterweb-parse-curriculum html))
+             (curriculum (list :package "jupiterweb"
+                               :kind "curriculum"
+                               :schema-version 1
+                               :codcg jupiterweb-codcg
+                               :codcur jupiterweb-codcur
+                               :codhab jupiterweb-codhab
+                               :tipo jupiterweb-tipo
+                               :source-url (jupiterweb--grade-url)
+                               :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                               :disciplines disciplines)))
+        (when (null disciplines)
+          (display-warning 'jupiterweb
+                           "No discipline links found in curriculum HTML"))
+        (setq jupiterweb--curriculum-memory curriculum)
+        (jupiterweb-cache-write-curriculum curriculum)
+        (if disciplines
+            (progn
+              (message "JupiterWeb: 🟩 Curriculum loaded successfully: %d disciplines cached."
+                       (length disciplines))
+              (jupiterweb--log-event 'curriculum 'success
+                                     :codcg jupiterweb-codcg
+                                     :codcur jupiterweb-codcur
+                                     :codhab jupiterweb-codhab
+                                     :tipo jupiterweb-tipo
+                                     :disciplines (length disciplines)
+                                     :file (jupiterweb--cache-file-curriculum)))
+          (message "JupiterWeb: 🔴 Curriculum load failed: no discipline links found.")
+          (jupiterweb--log-event 'curriculum 'not-found
+                                 :codcg jupiterweb-codcg
+                                 :codcur jupiterweb-codcur
+                                 :codhab jupiterweb-codhab
+                                 :tipo jupiterweb-tipo
+                                 :reason "no discipline links found"
+                                 :file (jupiterweb--cache-file-curriculum)))
+        curriculum)
+    (error
+     (message "JupiterWeb: 🔴 Curriculum load failed: %s"
+              (error-message-string err))
+     (jupiterweb--log-event 'curriculum 'fetch-failed
+                            :codcg jupiterweb-codcg
+                            :codcur jupiterweb-codcur
+                            :codhab jupiterweb-codhab
+                            :tipo jupiterweb-tipo
+                            :error (error-message-string err))
+     (signal (car err) (cdr err)))))
 
 ;;;###autoload
 (defalias 'jupiterweb-refresh-grade-cache 'jupiterweb-refresh-curriculum-cache)
@@ -273,23 +343,55 @@ so that `json-serialize' can encode them correctly in Emacs 30+."
                       (not (string= display-name sgldis)))
                  (format " - %s" display-name)
                ""))
-    (let* ((html (jupiterweb-fetch-discipline-html sgldis))
-           (data (jupiterweb-parse-discipline html sgldis
-                  (jupiterweb--discipline-url sgldis)))
-           (record (if data
-                       (append data
-                               (list :syllabus-status "cached"
-                                     :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
-                                     :raw-text html))
-                     (jupiterweb--build-syllabus-fallback
-                      sgldis display-name "Could not parse discipline page"))))
-      (setq jupiterweb--discipline-memory
-            (cons (cons sgldis record)
-                  (assoc-delete-all sgldis jupiterweb--discipline-memory)))
-      (jupiterweb-cache-write-discipline sgldis record)
-      (jupiterweb--update-curriculum-discipline-name
-       sgldis (plist-get record :name))
-      record)))
+    (condition-case err
+        (let* ((html (jupiterweb-fetch-discipline-html sgldis))
+               (data (jupiterweb-parse-discipline html sgldis
+                     (jupiterweb--discipline-url sgldis)))
+               (record (if data
+                           (append data
+                                   (list :syllabus-status "cached"
+                                         :fetched-at (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                                         :raw-text html))
+                         (jupiterweb--build-syllabus-fallback
+                          sgldis display-name "Could not parse discipline page")))
+               (name (jupiterweb--discipline-display-name sgldis record display-name)))
+          (setq jupiterweb--discipline-memory
+                (cons (cons sgldis record)
+                      (assoc-delete-all sgldis jupiterweb--discipline-memory)))
+          (jupiterweb-cache-write-discipline sgldis record)
+          (jupiterweb--update-curriculum-discipline-name
+           sgldis (plist-get record :name))
+          (if (jupiterweb--discipline-cache-success-p record)
+              (progn
+                (message "JupiterWeb: 🟩 Discipline %s - %s loaded successfully!"
+                         sgldis name)
+                (jupiterweb--log-event 'discipline 'success
+                                       :sgldis sgldis
+                                       :name name
+                                       :file (jupiterweb--cache-file-discipline sgldis)))
+            (message "JupiterWeb: 🔴 Discipline %s - %s could not be parsed."
+                     sgldis name)
+            (jupiterweb--log-event 'discipline 'parse-failed
+                                   :sgldis sgldis
+                                   :name name
+                                   :reason (or (plist-get record :observation)
+                                               "Could not parse discipline page")
+                                   :file (jupiterweb--cache-file-discipline sgldis)))
+          record)
+      (error
+       (message "JupiterWeb: 🔴 Discipline %s%s failed: %s"
+                sgldis
+                (if (and display-name
+                         (not (string-empty-p display-name))
+                         (not (string= display-name sgldis)))
+                    (format " - %s" display-name)
+                  "")
+                (error-message-string err))
+       (jupiterweb--log-event 'discipline 'fetch-failed
+                              :sgldis sgldis
+                              :name display-name
+                              :error (error-message-string err))
+       (signal (car err) (cdr err))))))
 
 ;;;###autoload
 (defun jupiterweb-refresh-all-discipline-caches ()

@@ -899,3 +899,23 @@ Manual workflow:
 :DEPENDENCIES: JW-162
 :ACCEPTANCE: Repository contains a concise release summary and known limitations.
 :END:
+
+
+* Correção e Debugs
+** DONE Rever o webscraping das disciplinas
+Ao rodar as disciplinas ainda aparecem =nil= para todos os demais campos. Ver exemplo:
+
+#+begin_example
+(:sgldis "4300151" :name "Fundamentos de Mecânica" :name-en nil :unit nil :group nil :credits-lecture nil :credits-work nil :workload-total nil :workload-pcc nil :workload-internship nil :workload-extension nil :extra nil :type nil :activation nil :deactivation nil :syllabus nil :objectives nil :summary-program nil :program nil :teaching-method nil :assessment-method nil :recovery-rule nil :bibliography nil :basic-bibliography nil :complementary-bibliography nil :sustainable-development-goals nil :instructors nil :instructors-list nil :syllabus-status "fallback" :observation "Could not parse discipline page")
+#+end_example
+
+Resultado: corrigido parser de páginas reais do JupiterWeb com entidades HTML nomeadas, regex de créditos, extração de cabeçalhos sem dois-pontos e preservação de match-data; view/cache agora exibem campos completos.
+
+** DONE Adicionar um aviso final de que as disciplinas já estào todas carregadas
+O viso de que as disciplinas estào sendo carregadas durante o webscrap está funcionando bem, mas ela deveria aparecer também com uma confirmação de carregamento. Por exemplo, a disciplina 4300255 - Mecânica dos Corpos Rígidos e dos Fluidos foi carregada com sucesso! 🟩  (manter as notificações em inglês). Na mensagem de avisos, usar um emoji 🟩 para sucesso e 🔴 para algum tipo de insucesso. Criar um arquivo logo que possa ser inspecionado (sem a necessida de emoji, mas com identificação se a sigla não foi encontrada no webscrap ou se foi um problema de parse).
+
+Resultado: implementadas mensagens finais em inglês com 🟩/🔴 e log inspecionável =jupiterweb-refresh.log= com status =success=, =parse-failed= e =fetch-failed= para disciplinas.
+** DONE Adicionar avisos no carregamento da webscrape da estrutura curricular
+Realizar algo semelhante com o buffer de avisos e arquivo de log para o carregamento da estrutura/grade curricular.
+
+Resultado: implementadas mensagens finais em inglês com 🟩/🔴 e log inspecionável =jupiterweb-refresh.log= com status =success=, =not-found= e =fetch-failed= para a grade curricular.

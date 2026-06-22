@@ -41,8 +41,13 @@
      ["Export"
       ("j" "Export to JSON" jupiterweb-export-cache-json)]
      ["Course"
-      ("u" "Set course" jupiterweb-set-course)]])
-  )
+      ("u" "Set course" jupiterweb-set-course)]]))
+
+(unless (fboundp 'jupiterweb-dispatch)
+  (defun jupiterweb-dispatch ()
+    "Fallback dispatcher when Transient is unavailable."
+    (interactive)
+    (user-error "Transient is not available; call jupiterweb commands directly")))
 
 (provide 'jupiterweb-transient)
 ;;; jupiterweb-transient.el ends here

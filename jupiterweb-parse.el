@@ -197,37 +197,52 @@ Ported from Python normalizar_unicode."
             (ucs-normalize-NFC-string normalized)
           (error normalized))))))
 
+(defconst jupiterweb--html-entity-map
+  '(("amp" . "&") ("lt" . "<") ("gt" . ">") ("quot" . "\"")
+    ("nbsp" . " ") ("apos" . "'") ("copy" . "©")
+    ("Agrave" . "À") ("Aacute" . "Á") ("Acirc" . "Â") ("Atilde" . "Ã")
+    ("Auml" . "Ä") ("Aring" . "Å") ("AElig" . "Æ") ("Ccedil" . "Ç")
+    ("Egrave" . "È") ("Eacute" . "É") ("Ecirc" . "Ê") ("Euml" . "Ë")
+    ("Igrave" . "Ì") ("Iacute" . "Í") ("Icirc" . "Î") ("Iuml" . "Ï")
+    ("ETH" . "Ð") ("Ntilde" . "Ñ") ("Ograve" . "Ò") ("Oacute" . "Ó")
+    ("Ocirc" . "Ô") ("Otilde" . "Õ") ("Ouml" . "Ö") ("Oslash" . "Ø")
+    ("Ugrave" . "Ù") ("Uacute" . "Ú") ("Ucirc" . "Û") ("Uuml" . "Ü")
+    ("Yacute" . "Ý") ("THORN" . "Þ") ("szlig" . "ß")
+    ("agrave" . "à") ("aacute" . "á") ("acirc" . "â") ("atilde" . "ã")
+    ("auml" . "ä") ("aring" . "å") ("aelig" . "æ") ("ccedil" . "ç")
+    ("egrave" . "è") ("eacute" . "é") ("ecirc" . "ê") ("euml" . "ë")
+    ("igrave" . "ì") ("iacute" . "í") ("icirc" . "î") ("iuml" . "ï")
+    ("eth" . "ð") ("ntilde" . "ñ") ("ograve" . "ò") ("oacute" . "ó")
+    ("ocirc" . "ô") ("otilde" . "õ") ("ouml" . "ö") ("oslash" . "ø")
+    ("ugrave" . "ù") ("uacute" . "ú") ("ucirc" . "û") ("uuml" . "ü")
+    ("yacute" . "ý") ("thorn" . "þ") ("yuml" . "ÿ")
+    ("ordf" . "ª") ("ordm" . "º") ("ndash" . "–") ("mdash" . "—")
+    ("lsquo" . "‘") ("rsquo" . "’") ("ldquo" . "“") ("rdquo" . "”"))
+  "Named HTML entities commonly found in JupiterWeb pages.")
+
 (defun jupiterweb--html-unescape (text)
   "HTML-unescape TEXT.
-Convert HTML entities like &amp;, &lt;, &gt;, &quot;, &#NNN;, &#xHHH;,
-and &nbsp; to their character equivalents.  Applied twice for nested entities."
+Convert named entities, decimal numeric entities, and hexadecimal numeric
+entities to their character equivalents.  Applied twice for nested entities."
   (if (or (null text) (string-empty-p text))
       text
     (with-temp-buffer
       (insert text)
       (dotimes (_ 2)
         (goto-char (point-min))
-        (while (re-search-forward "&\\(#\\([0-9]+\\)\\|#x\\([0-9a-fA-F]+\\)\\|\\(amp\\|lt\\|gt\\|quot\\|nbsp\\|apos\\);\\)" nil t)
-          (let ((match (match-string 1))
-                (num (match-string 2))
-                (hex (match-string 3))
-                (name (match-string 4)))
-            (cond
-             (num
-              (replace-match (string (string-to-number num)) t t))
-             (hex
-              (replace-match (string (string-to-number hex 16)) t t))
-             (t
-              (replace-match
-               (pcase name
-                 ("amp" "&")
-                 ("lt" "<")
-                 ("gt" ">")
-                 ("quot" "\"")
-                 ("nbsp" " ")
-                 ("apos" "'")
-                 (_ match))
-               t t))))))
+        (while (re-search-forward
+                "&\\(?:#\\([0-9]+\\)\\|#x\\([0-9a-fA-F]+\\)\\|\\([A-Za-z][A-Za-z0-9]+\\)\\);"
+                nil t)
+          (let* ((num (match-string 1))
+                 (hex (match-string 2))
+                 (name (match-string 3))
+                 (replacement
+                  (cond
+                   (num (char-to-string (string-to-number num)))
+                   (hex (char-to-string (string-to-number hex 16)))
+                   (name (cdr (assoc name jupiterweb--html-entity-map))))))
+            (when replacement
+              (replace-match replacement t t)))))
       (buffer-string))))
 
 (defun jupiterweb--convert-double-quotes (text)
@@ -394,10 +409,18 @@ Ported from Python extrair_numero.  Case-insensitive search."
        ((string-match-p "Medicina" u) "MFT")
        (t u)))))
 
+(defconst jupiterweb--blank-re "[ \n\r\t]"
+  "Regexp character class matching whitespace in cleaned JupiterWeb text.")
+
+(defconst jupiterweb--hblank-re "[ \r\t]"
+  "Regexp character class matching horizontal whitespace only.")
+
 (defun jupiterweb--heading-regexp (title)
   "Return a regexp matching an isolated section heading line for TITLE."
   (let ((escaped (regexp-quote title)))
-    (concat "\\(?:^\\|\\n\\)\\s-*" escaped "\\s-*:\\?\\s-*\\(?:\\n\\|$\\)")))
+    (concat "\\(?:^\\|\\n\\)" jupiterweb--hblank-re "*"
+            escaped jupiterweb--hblank-re "*:?" jupiterweb--hblank-re
+            "*\\(?:\\n\\|$\\)")))
 
 (defun jupiterweb--clean-section (section)
   "Clean a section extracted from the page."
@@ -439,7 +462,9 @@ Ported from Python extrair_numero.  Case-insensitive search."
   (let ((case-fold-search t)
         (escaped (regexp-quote label)))
     (let ((m1 (string-match
-               (concat "\\(?:^\\|\\n\\)\\s-*" escaped "\\s-*:\\s-*\\n+[ \\t\xa0]*\\([^\n]*\\)")
+               (concat "\\(?:^\\|\\n\\)" jupiterweb--blank-re "*"
+                       escaped jupiterweb--blank-re "*:" jupiterweb--blank-re
+                       "*\\n+" jupiterweb--blank-re "*\\([^\n]*\\)")
                text)))
       (if m1
           (let ((val (jupiterweb--clean-field-text (match-string 1 text))))
@@ -449,7 +474,8 @@ Ported from Python extrair_numero.  Case-insensitive search."
                 nil
               val))
         (let ((m2 (string-match
-                   (concat escaped "\\s-*:\\s-*\\([^\n]+\\)")
+                   (concat escaped jupiterweb--blank-re "*:" jupiterweb--blank-re
+                           "*\\([^\n]+\\)")
                    text)))
           (if m2
               (let ((val (jupiterweb--clean-field-text (match-string 1 text))))
@@ -533,48 +559,83 @@ Ported from Python extrair_numero.  Case-insensitive search."
   "Extract syllabus data from a JupiterWeb discipline HTML page."
   (let ((text (jupiterweb--html-to-plain-text html)))
     (if (or (null text)
-            (not (string-match-p "Cr.editos Aula" text))
+            (not (string-match-p "Cr.ditos Aula" text))
             (not (string-match-p "Disciplina:" text)))
         nil
       (let ((unidade-grupo
              (when (string-match
-                    "Pr.-Reitoria de Gradua..o\\s-+\\(.*?\\)\\s-+Disciplina:"
+                    (concat "Pr.-Reitoria de Gradua..o" jupiterweb--blank-re
+                            "+\\(.*?\\)" jupiterweb--blank-re "+Disciplina:")
                     text)
                (match-string 1 text))))
         (let ((m-ident (string-match
-                        "Disciplina:\\s-*\\([^\n-]+?\\)\\s-*-\\s-*\\(.+?\\)\\(?:\\n\\s-*Cr.editos Aula:\\)"
+                        (concat "Disciplina:" jupiterweb--blank-re
+                                "*\\([^\n-]+?\\)" jupiterweb--blank-re "*-"
+                                jupiterweb--blank-re "*\\([^\n]+\\)")
                         text)))
           (if (not m-ident)
               nil
-            (let* ((sgldis-parsed (jupiterweb--clean-field-text (match-string 1 text)))
-                   (nomes (split-string (match-string 2 text) "\n"))
-                   (names-clean nil))
-              (dolist (ln nomes)
-                (let ((cleaned (jupiterweb--clean-field-text ln)))
-                  (when cleaned
-                    (push cleaned names-clean))))
-              (setq names-clean (nreverse names-clean))
-              (let* ((nome-disciplina (car names-clean))
-                     (nome-disciplina-ingles (cadr names-clean))
-                     (u-parts (when unidade-grupo (split-string unidade-grupo "\n")))
+            (let* ((raw-sgldis (match-string 1 text))
+                   (raw-name (match-string 2 text))
+                   (ident-end (match-end 0))
+                   (sgldis-parsed (jupiterweb--clean-field-text raw-sgldis))
+                   (nome-disciplina (jupiterweb--clean-field-text raw-name))
+                   (nome-disciplina-ingles
+                    (let ((lines (split-string (substring text ident-end) "\n"))
+                          (found nil))
+                      (while (and lines (not found))
+                        (let ((line (jupiterweb--clean-field-text (car lines))))
+                          (cond
+                           ((null line) nil)
+                           ((string-match-p "Cr.ditos Aula:" line)
+                            (setq lines nil))
+                           (t
+                            (setq found line))))
+                        (setq lines (cdr lines)))
+                      found)))
+              (let* ((u-parts (when unidade-grupo (split-string unidade-grupo "\n")))
                      (u-clean (delq nil (mapcar #'jupiterweb--clean-field-text u-parts)))
                      (unidade (jupiterweb--normalize-unit (car u-clean)))
                      (grupo (cadr u-clean))
-                     (cred-aula (jupiterweb--extract-number text "Cr.editos\\s-+Aula:\\s-*\\([0-9]+\\)"))
-                     (cred-trabalho (jupiterweb--extract-number text "Cr.editos\\s-+Trabalho:\\s-*\\([0-9]+\\)"))
-                     (carga-total (jupiterweb--extract-number text "Carga\\s-+Hor.ria\\s-+Total:\\s-*\\([0-9]+\\)")))
+                     (cred-aula (jupiterweb--extract-number
+                                 text (concat "Cr.ditos" jupiterweb--blank-re
+                                              "+Aula:" jupiterweb--blank-re
+                                              "*\\([0-9]+\\)")))
+                     (cred-trabalho (jupiterweb--extract-number
+                                     text (concat "Cr.ditos" jupiterweb--blank-re
+                                                  "+Trabalho:" jupiterweb--blank-re
+                                                  "*\\([0-9]+\\)")))
+                     (carga-total (jupiterweb--extract-number
+                                   text (concat "Carga" jupiterweb--blank-re
+                                                "+Hor.ria" jupiterweb--blank-re
+                                                "+Total:" jupiterweb--blank-re
+                                                "*\\([0-9]+\\)"))))
                 (if (or (null cred-aula) (null cred-trabalho) (null carga-total))
                     nil
                   (let* ((m-extra (string-match
-                                  "Carga\\s-+Hor.ria\\s-+Total:\\s-*[0-9]+\\s-*h\\s-*\\(.*?\\)\\s-*Tipo:"
+                                  (concat "Carga" jupiterweb--blank-re "+Hor.ria"
+                                          jupiterweb--blank-re "+Total:"
+                                          jupiterweb--blank-re "*[0-9]+"
+                                          jupiterweb--blank-re "*h"
+                                          jupiterweb--blank-re "*\\(.*?\\)"
+                                          jupiterweb--blank-re "*Tipo:")
                                   text))
                          (extra (if m-extra (jupiterweb--clean-field-text (match-string 1 text)) ""))
-                         (ch-pcc (jupiterweb--extract-number (or extra "")
-                                  "Pr.ticas\\s-+como\\s-+Componentes\\s-+Curriculares:\\s-*\\([0-9]+\\)"))
+                         (ch-pcc (jupiterweb--extract-number
+                                  text (concat "Pr.ticas" jupiterweb--blank-re
+                                               "+como" jupiterweb--blank-re
+                                               "+Componentes" jupiterweb--blank-re
+                                               "+Curriculares:" jupiterweb--blank-re
+                                               "*\\([0-9]+\\)")))
                          (ch-estagio (jupiterweb--extract-number (or extra "")
-                                       "Est.gio:\\s-*\\([0-9]+\\)"))
-                         (ch-ext (jupiterweb--extract-number text
-                                   "Carga\\s-+Hor.ria\\s-+de\\s-+Extens.o:\\s-*\\([0-9]+\\)"))
+                                       (concat "Est.gio:" jupiterweb--blank-re
+                                               "*\\([0-9]+\\)")))
+                         (ch-ext (jupiterweb--extract-number
+                                  text (concat "Carga" jupiterweb--blank-re
+                                               "+Hor.ria" jupiterweb--blank-re
+                                               "+de" jupiterweb--blank-re
+                                               "+Extens.o:" jupiterweb--blank-re
+                                               "*\\([0-9]+\\)")))
                          (secoes (jupiterweb--extract-sections text))
                          (get-section (lambda (key) (cdr (assoc key secoes))))
                          (docentes-texto (funcall get-section "docente_s_responsavel_eis")))
@@ -597,8 +658,8 @@ Ported from Python extrair_numero.  Case-insensitive search."
                            :workload-extension ch-ext
                            :extra extra
                            :type (jupiterweb--extract-label-value text "Tipo")
-                           :activation (jupiterweb--extract-label-value text "Ativa..o")
-                           :deactivation (jupiterweb--extract-label-value text "Desativa..o")
+                           :activation (jupiterweb--extract-label-value text "Ativação")
+                           :deactivation (jupiterweb--extract-label-value text "Desativação")
                            :syllabus (funcall get-section "ementa")
                            :objectives (funcall get-section "objetivos")
                            :summary-program (funcall get-section "conteudo_programatico")
