@@ -11,12 +11,15 @@
 
 ;;; Code:
 
+(eval-and-compile
+  (require 'transient nil t))
+
 (require 'jupiterweb-vars)
 (require 'jupiterweb-cache)
 (require 'jupiterweb-ui)
 (require 'jupiterweb-export)
 
-(when (require 'transient nil t)
+(when (featurep 'transient)
 
   (transient-define-prefix jupiterweb-dispatch ()
     "JupiterWeb dispatcher."

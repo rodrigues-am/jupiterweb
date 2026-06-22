@@ -572,6 +572,20 @@ Bibliografia<br><br>ALMEIDA, M.J.P.M. Discursos da Ci&ecirc;ncia.<br>
   (should (commandp 'jupiterweb-export-cache-json))
   (should (commandp 'jupiterweb-select-discipline)))
 
+(ert-deftest jupiterweb-test-byte-compile-entrypoint-with-transient ()
+  "Test byte-compiling the transient module and entry point does not void jupiterweb-dispatch."
+  (let ((default-directory (file-name-directory (locate-library "jupiterweb.el"))))
+    (dolist (file '("jupiterweb-transient.elc" "jupiterweb.elc"))
+      (when (file-exists-p file)
+        (delete-file file)))
+    (unwind-protect
+        (let ((byte-compile-error-on-warn nil))
+          (should (byte-compile-file "jupiterweb-transient.el"))
+          (should (byte-compile-file "jupiterweb.el")))
+      (dolist (file '("jupiterweb-transient.elc" "jupiterweb.elc"))
+        (when (file-exists-p file)
+          (delete-file file))))))
+
 (ert-deftest jupiterweb-test-export-json-disciplines-is-array ()
   "Test that exported JSON encodes disciplines as an array, not an object."
   (let ((jupiterweb-cache-directory "/tmp/test-jupiterweb-export/"))
