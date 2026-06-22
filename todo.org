@@ -190,7 +190,7 @@ Implement:
 - =jupiterweb--grade-url=
 - =jupiterweb--discipline-url=
 
-** NEXT [#B] JW-013 Implement course-setting and memory invalidation :D2:cache:
+** DONE [#B] JW-013 Implement course-setting and memory invalidation :D2:cache:
 :PROPERTIES:
 :ID: JW-013
 :FILES: jupiterweb-vars.el jupiterweb-cache.el test/jupiterweb-test.el
@@ -208,7 +208,7 @@ Implement:
 
 * Phase 2 — Port decoding and text cleanup
 
-** TODO [#A] JW-020 Port CP1252 control-character mapping :D2:port:test:
+** NEXT [#A] JW-020 Port CP1252 control-character mapping :D2:port:test:
 :PROPERTIES:
 :ID: JW-020
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el

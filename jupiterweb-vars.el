@@ -93,9 +93,26 @@
 (defvar jupiterweb--discipline-memory nil
   "In-memory cache for discipline syllabus plists, keyed by sgldis.")
 
+(require 'cl-lib)
+
 (defun jupiterweb--current-course-key ()
   "Return a cons cell (codcur . codhab) identifying the current course."
   (cons jupiterweb-codcur jupiterweb-codhab))
+
+(cl-defun jupiterweb-set-course (&key codcg codcur codhab tipo)
+  "Set the current JupiterWeb course parameters and reload matching cache.
+When a parameter is nil, the current value is preserved.
+Clears in-memory curriculum and discipline caches after updating variables."
+  (when codcg (setq jupiterweb-codcg codcg))
+  (when codcur (setq jupiterweb-codcur codcur))
+  (when codhab (setq jupiterweb-codhab codhab))
+  (when tipo (setq jupiterweb-tipo tipo))
+  ;; Clear in-memory caches.
+  (setq jupiterweb--curriculum-memory nil
+        jupiterweb--discipline-memory nil)
+  ;; Reload from disk if available.
+  (when (fboundp 'jupiterweb-cache-read-curriculum)
+    (ignore-errors (jupiterweb-cache-read-curriculum))))
 
 (provide 'jupiterweb-vars)
 ;;; jupiterweb-vars.el ends here

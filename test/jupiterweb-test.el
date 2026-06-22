@@ -48,5 +48,28 @@
   "Test that `jupiterweb--current-course-key' returns the correct key."
   (should (equal (jupiterweb--current-course-key) '("43031" . "0"))))
 
+;;; Course setting and memory invalidation
+
+(ert-deftest jupiterweb-test-set-course-invalidates-memory ()
+  "Test that `jupiterweb-set-course' updates variables and clears in-memory cache."
+  ;; Set up in-memory caches with dummy data.
+  (setq jupiterweb--curriculum-memory '(:dummy curriculum)
+        jupiterweb--discipline-memory '(("4300151" . (:dummy discipline))))
+  ;; Set a new course.
+  (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N")
+  ;; Variables should be updated.
+  (should (equal jupiterweb-codcur "43031"))
+  (should (equal jupiterweb-codhab "0"))
+  ;; In-memory caches should be cleared.
+  (should (null jupiterweb--curriculum-memory))
+  (should (null jupiterweb--discipline-memory))
+  ;; Test partial update — only change codhab.
+  (setq jupiterweb--curriculum-memory '(:dummy))
+  (jupiterweb-set-course :codhab "4")
+  (should (equal jupiterweb-codhab "4"))
+  (should (null jupiterweb--curriculum-memory))
+  ;; Restore defaults.
+  (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N"))
+
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here
