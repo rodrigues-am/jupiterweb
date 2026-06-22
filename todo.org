@@ -208,7 +208,7 @@ Implement:
 
 * Phase 2 — Port decoding and text cleanup
 
-** NEXT [#A] JW-020 Port CP1252 control-character mapping :D2:port:test:
+** DONE [#A] JW-020 Port CP1252 control-character mapping :D2:port:test:
 :PROPERTIES:
 :ID: JW-020
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -219,7 +219,7 @@ Implement:
 
 Port Python =CONTROLES_CP1252=.
 
-** TODO [#A] JW-021 Port invisible-space normalization :D2:port:test:
+** DONE [#A] JW-021 Port invisible-space normalization :D2:port:test:
 :PROPERTIES:
 :ID: JW-021
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el
@@ -230,7 +230,7 @@ Port Python =CONTROLES_CP1252=.
 
 Port Python =ESPACOS_INVISIVEIS=.
 
-** TODO [#B] JW-022 Port field text cleanup :D2:port:test:
+** NEXT [#B] JW-022 Port field text cleanup :D2:port:test:
 :PROPERTIES:
 :ID: JW-022
 :FILES: jupiterweb-parse.el test/jupiterweb-test.el

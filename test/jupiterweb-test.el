@@ -71,5 +71,93 @@
   ;; Restore defaults.
   (jupiterweb-set-course :codcg "43" :codcur "43031" :codhab "0" :tipo "N"))
 
+;;; CP1252 control-character mapping
+
+(ert-deftest jupiterweb-test-cp1252-control-mapping ()
+  "Test that CP1252 control characters are converted to proper Unicode."
+  ;; Test curly quotes (the most common case)
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF91 #x68 #x65 #x6C #x6C #x6F #x3FFF92))
+                 (string ?\u2018 ?h ?e ?l ?l ?o ?\u2019)))
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF93 ?q ?u ?o ?t ?e ?d #x3FFF94))
+                 (string ?\u201C ?q ?u ?o ?t ?e ?d ?\u201D)))
+  ;; Test en-dash and em-dash
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF96 #x3FFF97))
+                 (string ?\u2013 ?\u2014)))
+  ;; Test bullet
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF95))
+                 (string ?\u2022)))
+  ;; Test ellipsis
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF85))
+                 (string ?\u2026)))
+  ;; Test Euro sign
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF80))
+                 (string ?\u20AC)))
+  ;; Test trademark
+  (should (equal (jupiterweb--fix-cp1252-controls (string #x3FFF99))
+                 (string ?\u2122)))
+  ;; Test that regular ASCII is untouched
+  (should (equal (jupiterweb--fix-cp1252-controls "hello world")
+                 "hello world"))
+  ;; Test mixed content
+  (should (equal (jupiterweb--fix-cp1252-controls
+                  (string ?P ?r ?i ?c ?e ?: ?  #x3FFF80 ?5 ?  #x3FFF96 ?  ?s ?p ?e ?c ?i ?a ?l #x3FFF99))
+                 (string ?P ?r ?i ?c ?e ?: ?  ?\u20AC ?5 ?  ?\u2013 ?  ?s ?p ?e ?c ?i ?a ?l ?\u2122)))
+  ;; Test empty string and nil
+  (should (equal (jupiterweb--fix-cp1252-controls "") ""))
+  (should (null (jupiterweb--fix-cp1252-controls nil))))
+
+;;; Invisible-space normalization
+
+(ert-deftest jupiterweb-test-invisible-space-normalization ()
+  "Test that invisible spaces are removed or converted to normal spaces."
+  ;; NO-BREAK SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "hello\u00A0world")
+                 "hello world"))
+  ;; EN SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u2002b")
+                 "a b"))
+  ;; EM SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u2003b")
+                 "a b"))
+  ;; THIN SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u2009b")
+                 "a b"))
+  ;; HAIR SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u200Ab")
+                 "a b"))
+  ;; IDEOGRAPHIC SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u3000b")
+                 "a b"))
+  ;; NARROW NO-BREAK SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u202Fb")
+                 "a b"))
+  ;; MEDIUM MATHEMATICAL SPACE → space
+  (should (equal (jupiterweb--normalize-unicode "a\u205Fb")
+                 "a b"))
+  ;; ZERO WIDTH SPACE → removed
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Bworld")
+                 "helloworld"))
+  ;; ZERO WIDTH NON-JOINER → removed
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Cworld")
+                 "helloworld"))
+  ;; ZERO WIDTH JOINER → removed
+  (should (equal (jupiterweb--normalize-unicode "hello\u200Dworld")
+                 "helloworld"))
+  ;; SOFT HYPHEN → removed
+  (should (equal (jupiterweb--normalize-unicode "hello\u00ADworld")
+                 "helloworld"))
+  ;; BOM → removed
+  (should (equal (jupiterweb--normalize-unicode "\uFEFFhello")
+                 "hello"))
+  ;; Multiple invisible spaces together (NBSP→space, ZWS→removed, THIN→space = two spaces)
+  (should (equal (jupiterweb--normalize-unicode "a\u00A0\u200B\u2009b")
+                 "a  b"))
+  ;; Regular text unchanged
+  (should (equal (jupiterweb--normalize-unicode "hello world")
+                 "hello world"))
+  ;; Empty string and nil
+  (should (equal (jupiterweb--normalize-unicode "") ""))
+  (should (null (jupiterweb--normalize-unicode nil))))
+
 (provide 'jupiterweb-test)
 ;;; jupiterweb-test.el ends here

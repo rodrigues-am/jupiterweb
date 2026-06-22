@@ -57,13 +57,122 @@
   "Decode a JupiterWeb HTTP response robustly."
   (error "jupiterweb--decode-response not yet implemented"))
 
+;; CP1252 control-character mapping (ported from Python CONTROLES_CP1252)
+;; Maps CP1252 control codepoints to their proper Unicode characters.
+;; These appear when Windows-1252 curly quotes etc. are decoded as ISO-8859-1.
+
+(defconst jupiterweb--cp1252-controls
+  (let ((table (make-char-table 'cp1252-controls)))
+    (aset table #x80 ?\u20AC)   ; €
+    (aset table #x82 ?\u201A)   ; ‚
+    (aset table #x83 ?\u0192)   ; ƒ
+    (aset table #x84 ?\u201E)   ; „
+    (aset table #x85 ?\u2026)   ; …
+    (aset table #x86 ?\u2020)   ; †
+    (aset table #x87 ?\u2021)   ; ‡
+    (aset table #x88 ?\u02C6)   ; ˆ
+    (aset table #x89 ?\u2030)   ; ‰
+    (aset table #x8A ?\u0160)   ; Š
+    (aset table #x8B ?\u2039)   ; ‹
+    (aset table #x8C ?\u0152)   ; Œ
+    (aset table #x8E ?\u017D)   ; Ž
+    (aset table #x91 ?\u2018)   ; '
+    (aset table #x92 ?\u2019)   ; '
+    (aset table #x93 ?\u201C)   ; "
+    (aset table #x94 ?\u201D)   ; "
+    (aset table #x95 ?\u2022)   ; •
+    (aset table #x96 ?\u2013)   ; –
+    (aset table #x97 ?\u2014)   ; —
+    (aset table #x98 ?\u02DC)   ; ˜
+    (aset table #x99 ?\u2122)   ; ™
+    (aset table #x9A ?\u0161)   ; š
+    (aset table #x9B ?\u203A)   ; ›
+    (aset table #x9C ?\u0153)   ; œ
+    (aset table #x9E ?\u017E)   ; ž
+    (aset table #x9F ?\u0178)   ; Ÿ
+    table)
+  "Char-table mapping CP1252 control codepoints to proper Unicode characters.
+Ported from Python CONTROLES_CP1252 in scrape_jupiterweb.py.")
+
 (defun jupiterweb--fix-cp1252-controls (text)
-  "Fix common CP1252 control characters."
-  (error "jupiterweb--fix-cp1252-controls not yet implemented"))
+  "Fix common CP1252 control characters in TEXT.
+Each byte in the CP1252 control range (0x80-0x9F) that has a known
+mapping is replaced with its proper Unicode character."
+  (if (or (null text) (string-empty-p text))
+      text
+    (let ((chars (string-to-list text))
+          (result nil))
+      (dolist (ch chars)
+        (let* ((raw-byte
+                ;; In Emacs multibyte strings, raw bytes 0x80-0xFF are
+                ;; encoded as #x3FFF80-#x3FFFFF.  Extract the real byte value.
+                (if (and (>= ch #x3FFF80) (<= ch #x3FFFFF))
+                    (- ch #x3FFF00)
+                  (if (and (>= ch #x80) (<= ch #x9F)) ch nil)))
+               (replacement
+                (when raw-byte
+                  (let ((r (aref jupiterweb--cp1252-controls raw-byte)))
+                    (and r (not (eq r 0)) r)))))
+          (push (if replacement
+                    (string replacement)
+                  (string ch))
+                result)))
+      (apply #'concat (nreverse result)))))
+
+;; Invisible space characters (ported from Python ESPACOS_INVISIVEIS)
+;; Maps invisible/zero-width Unicode characters to normal space or empty string.
+(defconst jupiterweb--invisible-spaces
+  (let ((table (make-char-table 'invisible-spaces)))
+    ;; Spaces → normal space
+    (aset table #x00A0 ?\s)   ; NO-BREAK SPACE → space
+    (aset table #x1680 ?\s)   ; OGHAM SPACE MARK → space
+    (aset table #x180E 0)     ; MONGOLIAN VOWEL SEPARATOR → remove
+    (aset table #x2000 ?\s)   ; EN QUAD → space
+    (aset table #x2001 ?\s)   ; EM QUAD → space
+    (aset table #x2002 ?\s)   ; EN SPACE → space
+    (aset table #x2003 ?\s)   ; EM SPACE → space
+    (aset table #x2004 ?\s)   ; THREE-PER-EM SPACE → space
+    (aset table #x2005 ?\s)   ; FOUR-PER-EM SPACE → space
+    (aset table #x2006 ?\s)   ; SIX-PER-EM SPACE → space
+    (aset table #x2007 ?\s)   ; FIGURE SPACE → space
+    (aset table #x2008 ?\s)   ; PUNCTUATION SPACE → space
+    (aset table #x2009 ?\s)   ; THIN SPACE → space
+    (aset table #x200A ?\s)   ; HAIR SPACE → space
+    (aset table #x200B 0)     ; ZERO WIDTH SPACE → remove
+    (aset table #x200C 0)     ; ZERO WIDTH NON-JOINER → remove
+    (aset table #x200D 0)     ; ZERO WIDTH JOINER → remove
+    (aset table #x202F ?\s)   ; NARROW NO-BREAK SPACE → space
+    (aset table #x205F ?\s)   ; MEDIUM MATHEMATICAL SPACE → space
+    (aset table #x2060 0)     ; WORD JOINER → remove
+    (aset table #x3000 ?\s)   ; IDEOGRAPHIC SPACE → space
+    (aset table #xFEFF 0)     ; ZERO WIDTH NO-BREAK SPACE (BOM) → remove
+    (aset table #x00AD 0)     ; SOFT HYPHEN → remove
+    table)
+  "Char-table mapping invisible/zero-width Unicode spaces to normal space or removal.
+Ported from Python ESPACOS_INVISIVEIS in scrape_jupiterweb.py.")
 
 (defun jupiterweb--normalize-unicode (text)
-  "Remove invisible spaces and normalize Unicode."
-  (error "jupiterweb--normalize-unicode not yet implemented"))
+  "Remove invisible spaces and normalize Unicode in TEXT.
+Applies CP1252 control fixing, invisible space removal, and NFC normalization.
+Ported from Python normalizar_unicode."
+  (if (or (null text) (string-empty-p text))
+      text
+    (let* ((fixed-cp (jupiterweb--fix-cp1252-controls text))
+           (chars (string-to-list fixed-cp))
+           (result nil))
+      (dolist (ch chars)
+        (let ((replacement (aref jupiterweb--invisible-spaces ch)))
+          (cond
+           ((null replacement)
+            (push (string ch) result))
+           ((eq replacement 0)
+            nil)
+           (t
+            (push (string replacement) result)))))
+      (let ((normalized (apply #'concat (nreverse result))))
+        (condition-case nil
+            (ucs-normalize-NFC-string normalized)
+          (error normalized))))))
 
 (defun jupiterweb--convert-double-quotes (text)
   "Convert safe internal straight quotes to typographic quotes."
